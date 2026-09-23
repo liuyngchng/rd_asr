@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -81,7 +81,7 @@ func (s *Store) CreateTask(originalFilename, originalPath, convertedPath string,
 	if err != nil {
 		return "", fmt.Errorf("insert task: %w", err)
 	}
-	log.Printf("[task] create_task task_id=%s uid=%d file=%s", taskID, uid, originalFilename)
+	slog.Info("create_task", "task_id", taskID, "uid", uid, "file", originalFilename)
 	return taskID, nil
 }
 
@@ -151,13 +151,12 @@ func (s *Store) DeleteTask(taskID string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("[task] delete_task task_id=%s", taskID)
+	slog.Info("delete_task", "task_id", taskID)
 	return nil
 }
 
 func (s *Store) Close() error { return s.db.Close() }
 
-// UUID generates a v4 UUID.
 func UUID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)

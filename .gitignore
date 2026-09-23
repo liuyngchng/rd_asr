@@ -6,6 +6,9 @@ rd_asr
 *.db-shm
 *.db-wal
 
+# Logs
+/log/
+
 # Runtime data directories (created on first run)
 /uploads/
 /converted/

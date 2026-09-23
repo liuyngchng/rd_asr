@@ -2,7 +2,7 @@ package handler
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -59,7 +59,7 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	inputPath := filepath.Join("uploads", safeFilename)
 	saveFile, err := os.Create(inputPath)
 	if err != nil {
-		log.Printf("[upload] create file error: %v", err)
+		slog.Error("upload_create_file", "error", err)
 		WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "保存文件失败"})
 		return
 	}
@@ -75,11 +75,10 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	log.Printf("[upload] file saved: %s (original: %s)", inputPath, header.Filename)
 
 	taskID, err := s.Store.CreateTask(header.Filename, inputPath, "", uid)
 	if err != nil {
-		log.Printf("[upload] create task error: %v", err)
+		slog.Error("upload_create_task", "error", err)
 		WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "创建任务失败"})
 		return
 	}
@@ -95,10 +94,10 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 	originalName := filepath.Base(inputPath)
-	log.Printf("[%s] === START task, file=%s ===", taskID, originalName)
+	slog.Info("task_start", "task_id", taskID, "file", originalName)
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[%s] PANIC: %v", taskID, r)
+			slog.Error("task_panic", "task_id", taskID, "panic", r)
 			s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": fmt.Sprintf("内部错误: %v", r)})
 		}
 		os.Remove(inputPath)
@@ -129,10 +128,11 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 		s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": fmt.Sprintf("读取音频失败: %v", err)})
 		return
 	}
-	log.Printf("[%s] wav_loaded samples=%d (%.1fs)", taskID, len(samples), float64(len(samples))/16000)
+	durSec := float64(len(samples)) / 16000
+	slog.Info("task_wav_loaded", "task_id", taskID, "samples", len(samples), "duration_sec", durSec)
 
 	segments := vad.Detect(vd, samples)
-	log.Printf("[%s] vad_done segments=%d", taskID, len(segments))
+	slog.Info("task_vad_done", "task_id", taskID, "segments", len(segments))
 	if len(segments) == 0 {
 		s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": "未检测到语音"})
 		return
@@ -145,7 +145,9 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 		s.Store.UpdateTask(taskID, map[string]interface{}{"progress": pct})
 		text, err := funasr.Send(asrHost, asrPort, seg.Samples, i)
 		if err != nil {
-			s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": fmt.Sprintf("ASR识别失败(segment %d): %v", i+1, err)})
+			s.Store.UpdateTask(taskID, map[string]interface{}{
+				"status": "failed", "error": fmt.Sprintf("ASR识别失败(segment %d): %v", i+1, err),
+			})
 			return
 		}
 		if i > 0 {
@@ -158,7 +160,7 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 	resultFile := filepath.Join("results", taskID+".txt")
 	os.WriteFile(resultFile, []byte(resultText), 0644)
 	s.Store.UpdateTask(taskID, map[string]interface{}{"status": "completed", "result_text": resultText, "progress": 100})
-	log.Printf("[%s] === DONE, text_length=%d ===", taskID, len(resultText))
+	slog.Info("task_done", "task_id", taskID, "text_length", len(resultText))
 }
 
 func convertToWav(inputPath, outputPath string) error {

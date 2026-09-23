@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,12 +19,12 @@ func serveStaticPrefix(w http.ResponseWriter, r *http.Request, prefix string) {
 	for _, dir := range staticDirs {
 		fullPath := filepath.Join(dir, relPath)
 		if _, err := os.Stat(fullPath); err == nil {
-			log.Printf("[static] serving %s from %s", relPath, dir)
+			slog.Debug("static_serve", "path", relPath, "from", dir)
 			http.ServeFile(w, r, fullPath)
 			return
 		}
 	}
-	log.Printf("[static] not found: %s", r.URL.Path)
+	slog.Warn("static_not_found", "path", r.URL.Path)
 	http.NotFound(w, r)
 }
 

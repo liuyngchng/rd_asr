@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -42,7 +42,6 @@ func WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 	json.NewEncoder(w).Encode(data)
 }
 
-// WriteJSON writes JSON (convenience method on Server).
 func (s *Server) WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 	WriteJSON(w, status, data)
 }
@@ -51,13 +50,13 @@ func (s *Server) render(w http.ResponseWriter, tmplName string, ctx context) {
 	tmplPath := filepath.Join("templates", tmplName)
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
-		log.Printf("[template] parse error: %v", err)
+		slog.Error("template_parse", "error", err, "name", tmplName)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.Execute(w, ctx); err != nil {
-		log.Printf("[template] execute error: %v", err)
+		slog.Error("template_execute", "error", err, "name", tmplName)
 	}
 }
 
@@ -103,14 +102,13 @@ func (s *Server) addAccessCount(uid int) {
 	body := fmt.Sprintf(`{"uid":%d,"count":1,"app":"%s"}`, uid, AppTypeASR)
 	resp, err := http.Post(statsURI+"/statistics/access", "application/json", strings.NewReader(body))
 	if err != nil {
-		log.Printf("[stats] post error: %v", err)
+		slog.Warn("stats_call_failed", "error", err, "uid", uid)
 		return
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
 }
 
-// GetClientIP extracts the client IP.
 func GetClientIP(r *http.Request) string {
 	xff := r.Header.Get("X-Forwarded-For")
 	if xff != "" {

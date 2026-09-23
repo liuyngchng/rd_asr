@@ -3,7 +3,7 @@ package funasr
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"rd_asr/internal/vad"
@@ -31,6 +31,14 @@ type resultMsg struct {
 	Mode      string `json:"mode"`
 	WavName   string `json:"wav_name"`
 	Timestamp string `json:"timestamp"`
+}
+
+func (m *resultMsg) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("text", m.Text),
+		slog.Bool("is_final", m.IsFinal),
+		slog.String("wav_name", m.WavName),
+	)
 }
 
 func Send(host string, port int, samples []float32, segIdx int) (string, error) {
@@ -82,6 +90,6 @@ func Send(host string, port int, samples []float32, segIdx int) (string, error) 
 	if err := json.Unmarshal(msg, &result); err != nil {
 		return "", fmt.Errorf("unmarshal result: %w", err)
 	}
-	log.Printf("[ws] segment_%d result: text=%q is_final=%v", segIdx, result.Text, result.IsFinal)
+	slog.Info("asr_segment_result", "segment", segIdx, "result", &result)
 	return result.Text, nil
 }

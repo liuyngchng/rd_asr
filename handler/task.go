@@ -3,7 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,10 +44,10 @@ func (s *Server) HandleMyTasks(w http.ResponseWriter, r *http.Request) {
 		WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "无效的请求体"})
 		return
 	}
-	log.Printf("[my_tasks] uid=%d", body.UID)
+	slog.Debug("my_tasks_query", "uid", body.UID)
 	tasks, err := s.Store.GetUserTasks(body.UID, 100)
 	if err != nil {
-		log.Printf("[my_tasks] query error: %v", err)
+		slog.Warn("my_tasks_query_error", "error", err, "uid", body.UID)
 		WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "查询任务失败"})
 		return
 	}
@@ -64,13 +64,13 @@ func (s *Server) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 		WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "缺少 task_id"})
 		return
 	}
-	log.Printf("[delete_task] task_id=%s", body.TaskID)
+	slog.Debug("delete_task", "task_id", body.TaskID)
 	task, _ := s.Store.GetTask(body.TaskID)
 	if task != nil {
 		cleanFiles(task)
 	}
 	if err := s.Store.DeleteTask(body.TaskID); err != nil {
-		log.Printf("[delete_task] error: %v", err)
+		slog.Warn("delete_task_error", "error", err, "task_id", body.TaskID)
 		WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "删除失败"})
 		return
 	}
@@ -163,7 +163,7 @@ func (s *Server) HandleDownload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename*=UTF-8''%s`, downloadName))
 	http.ServeFile(w, r, resultFile)
-	log.Printf("[download] task_id=%s, file=%s", taskID, downloadName)
+	slog.Info("download_result", "task_id", taskID)
 }
 
 func urlEncode(s string) string {

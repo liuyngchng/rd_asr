@@ -2,30 +2,37 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
 	"rd_asr/handler"
 	"rd_asr/internal/config"
+	"rd_asr/internal/logger"
 	"rd_asr/internal/store"
 	"rd_asr/internal/token"
 )
 
 func main() {
-	// Load config
+	// 加载配置
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FATAL: config error: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Ensure data directories
+	// 初始化日志（控制台 + 文件双输出）
+	if err := logger.Init(false); err != nil {
+		fmt.Fprintf(os.Stderr, "FATAL: logger init error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// 确保数据目录存在
 	for _, dir := range []string{"uploads", "converted", "results"} {
 		os.MkdirAll(dir, 0755)
 	}
 
-	// Initialize SQLite store
+	// 初始化 SQLite 任务存储
 	st, err := store.New("asr.db")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FATAL: db init error: %v\n", err)
@@ -33,12 +40,11 @@ func main() {
 	}
 	defer st.Close()
 
-	// Create handler server
+	// 创建 handler
 	srv := &handler.Server{Store: st, Config: cfg}
 
-	// HTTP routes
+	// HTTP 路由
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			srv.HandleIndex(w, r)
@@ -47,15 +53,12 @@ func main() {
 		http.NotFound(w, r)
 	})
 	mux.HandleFunc("/asr/task", srv.HandleTaskPage)
-
 	mux.HandleFunc("/static/", handler.HandleStatic)
 	mux.HandleFunc("/webfonts/", handler.HandleWebfonts)
-
 	mux.HandleFunc("/api/upload", srv.HandleUpload)
 	mux.HandleFunc("/api/status/", srv.HandleStatus)
 	mux.HandleFunc("/api/tasks", srv.HandleAllTasks)
 	mux.HandleFunc("/api/clear_tasks", srv.HandleClearTasks)
-
 	mux.HandleFunc("/asr/my/task", srv.HandleMyTasks)
 	mux.HandleFunc("/asr/download/", srv.HandleDownload)
 	mux.HandleFunc("/asr/del/task", srv.HandleDeleteTask)
@@ -69,9 +72,10 @@ func main() {
 	fmt.Printf("%s\n\n", repeat("=", 70))
 
 	port := 19010
-	log.Printf("[main] asr_service_listen_on_port %d", port)
+	slog.Info("asr_service_listen", "port", port, "url", fmt.Sprintf("http://127.0.0.1:%d", port))
 	if err := http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), mux); err != nil {
-		log.Fatalf("[main] server error: %v", err)
+		slog.Error("server_start_failed", "error", err)
+		os.Exit(1)
 	}
 }
 

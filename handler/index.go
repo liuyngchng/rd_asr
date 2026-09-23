@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"rd_asr/internal/token"
@@ -10,38 +10,38 @@ import (
 func (s *Server) HandleIndex(w http.ResponseWriter, r *http.Request) {
 	tok := r.URL.Query().Get("t")
 	if tok == "" {
-		log.Printf("[index] no_token, redirect to portal login")
+		slog.Info("index_no_token_redirect")
 		s.redirectPortal(w, r)
 		return
 	}
 	payload, err := token.Decode(tok, []byte(s.Config.Sys.CypherKey))
 	if err != nil || payload == nil {
-		log.Printf("[index] invalid token: %v, redirect to portal login", err)
+		slog.Info("index_invalid_token_redirect", "error", err)
 		s.redirectPortal(w, r)
 		return
 	}
 	go s.addAccessCount(payload.UID)
 	ctx := s.buildContext(payload, tok)
-	log.Printf("[index] render page uid=%s role=%d", ctx.UID, payload.Role)
+	slog.Info("index_render", "uid", ctx.UID, "role", payload.Role)
 	s.render(w, "asr_index.html", ctx)
 }
 
 func (s *Server) HandleTaskPage(w http.ResponseWriter, r *http.Request) {
 	tok := r.URL.Query().Get("t")
 	if tok == "" {
-		log.Printf("[task_page] no_token, redirect to portal login")
+		slog.Info("task_page_no_token_redirect")
 		s.redirectPortal(w, r)
 		return
 	}
 	payload, err := token.Decode(tok, []byte(s.Config.Sys.CypherKey))
 	if err != nil || payload == nil {
-		log.Printf("[task_page] invalid token: %v, redirect to portal login", err)
+		slog.Info("task_page_invalid_token_redirect", "error", err)
 		s.redirectPortal(w, r)
 		return
 	}
 	go s.addAccessCount(payload.UID)
 	ctx := s.buildContext(payload, tok)
 	ctx.WarningInfo = r.URL.Query().Get("warning_info")
-	log.Printf("[task_page] render page uid=%s", ctx.UID)
+	slog.Info("task_page_render", "uid", ctx.UID)
 	s.render(w, "asr_my_task.html", ctx)
 }
