@@ -63,6 +63,7 @@ body {
     display: flex;
     gap: 8px;
     align-items: center;
+    margin-left: auto;
 }
 
 .btn-clear,

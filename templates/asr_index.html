@@ -8,68 +8,35 @@
     <link rel="stylesheet" href="/static/asr.css">
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1><i class="fas fa-microphone-alt"></i> {{.SysName}}</h1>
-            <div class="model-info">
-                <span>支持格式: MP3, M4A, AMR, WAV, FLAC, OGG, AAC</span>
-                <div class="model-info-actions">
-                    <a href="/asr/task?uid={{.UID}}&app_source={{.AppSource}}&t={{.Token}}" class="btn-tasks" target="_blank">
-                        <i class="fas fa-tasks"></i> 我的任务
-                    </a>
-                </div>
-            </div>
+    <div class="page">
+        <header class="topbar">
+            <span class="topbar-title"><i class="fas fa-microphone-alt"></i> {{.SysName}}</span>
+            <a href="/asr/task?uid={{.UID}}&app_source={{.AppSource}}&t={{.Token}}" class="topbar-btn" target="_blank">
+                <i class="fas fa-tasks"></i> 我的任务
+            </a>
         </header>
 
-        <div class="main-content">
-            <div class="welcome-section">
-                <i class="fas fa-head-side-microphone" style="font-size: 56px; color: #4b6cb7; margin-bottom: 16px;"></i>
-                <p class="welcome-title">🎙️ 上传音频文件，自动转换为文字</p>
-                <p class="welcome-desc">支持 MP3、M4A、AMR、WAV、FLAC、OGG、AAC 等格式</p>
-            </div>
+        <main class="center-box">
+            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+            <h2>上传音频文件，自动转换为文字</h2>
+            <p class="sub">支持 MP3、M4A、AMR、WAV、FLAC、OGG、AAC 等格式</p>
 
             <div class="upload-result" id="uploadResult" style="display: none;"></div>
-
-            <div class="input-area">
-                <div class="input-container">
-                    <div class="input-wrapper">
-                        <div class="file-list-container" id="fileListContainer" style="display: none;">
-                            <div class="file-list-header">
-                                <span>已选择文件:</span>
-                                <button class="clear-files-btn" onclick="clearFileList()">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                            <div class="file-list" id="fileList"></div>
-                        </div>
-                    </div>
-
-                    <div class="input-actions">
-                        <div class="config-info">
-                            <span class="config-item">
-                                <i class="fas fa-microphone"></i>
-                                <span>音频转文字</span>
-                            </span>
-                        </div>
-                        <div class="input-buttons">
-                            <div class="file-upload-btn-container">
-                                <input type="file" id="fileInput" multiple accept=".mp3,.m4a,.amr,.wav,.flac,.ogg,.aac">
-                                <button id="uploadButton" class="btn-attach" title="上传音频文件">
-                                    <i class="fas fa-cloud-upload-alt"></i>
-                                    <span class="btn-text">选择文件</span>
-                                </button>
-                                <div class="file-count-badge" id="fileCountBadge" style="display: none;">0</div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="file-list-container" id="fileListContainer" style="display: none;">
+                <div class="file-list-header">
+                    <span>已选择文件:</span>
+                    <button class="clear-files-btn" onclick="clearFileList()"><i class="fas fa-times"></i></button>
                 </div>
-                <div class="input-hint">
-                    <small>点击上传按钮选择音频文件，系统将自动转换为文字</small>
-                </div>
+                <div class="file-list" id="fileList"></div>
             </div>
-        </div>
 
-        <footer class="footer">
+            <label class="upload-btn">
+                <input type="file" id="fileInput" multiple accept=".mp3,.m4a,.amr,.wav,.flac,.ogg,.aac">
+                <i class="fas fa-plus"></i> 选择文件
+            </label>
+        </main>
+
+        <footer class="foot">
             <p>Powered by FunASR &amp; FFmpeg</p>
         </footer>
     </div>
