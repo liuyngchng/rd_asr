@@ -27,16 +27,33 @@ func LoadModel(modelPath string) (*sherpa.VoiceActivityDetector, error) {
 		NumThreads: 1,
 		Provider:   "cpu",
 	}
-	vad := sherpa.NewVoiceActivityDetector(config, 60.0)
+	// buffer 容量按最长音频设置（7200s = 2 小时），避免 circular-buffer 扩容。
+	vad := sherpa.NewVoiceActivityDetector(config, 7200.0)
 	if vad == nil {
 		return nil, fmt.Errorf("failed to create VoiceActivityDetector")
 	}
 	return vad, nil
 }
 
-func Detect(vad *sherpa.VoiceActivityDetector, samples []float32) []Segment {
-	vad.AcceptWaveform(samples)
+// chunkSamples 每次喂给 VAD 的样本数（10 秒），避免一次性塞入整段长音频。
+const chunkSamples = 10 * 16000
+
+// Detect 分块将音频喂给 VAD，检测语音段并合并到 ≤5 分钟。
+// onProgress 每处理完一个 chunk 回调一次（processed/total 为样本数）。
+func Detect(vad *sherpa.VoiceActivityDetector, samples []float32, onProgress func(processed, total int)) []Segment {
+	total := len(samples)
+	for start := 0; start < total; start += chunkSamples {
+		end := start + chunkSamples
+		if end > total {
+			end = total
+		}
+		vad.AcceptWaveform(samples[start:end])
+		if onProgress != nil {
+			onProgress(end, total)
+		}
+	}
 	vad.Flush()
+
 	var segments []Segment
 	for !vad.IsEmpty() {
 		seg := vad.Front()

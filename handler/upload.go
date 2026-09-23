@@ -115,7 +115,7 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 	}
 	s.Store.UpdateTask(taskID, map[string]interface{}{"converted_path": wavPath, "status": "processing", "progress": 0})
 
-	// Step 2: VAD
+	// Step 2: VAD — 分块处理，记录进度
 	vd, err := vad.LoadModel("silero_vad.onnx")
 	if err != nil {
 		s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": fmt.Sprintf("加载VAD模型失败: %v", err)})
@@ -128,25 +128,49 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 		s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": fmt.Sprintf("读取音频失败: %v", err)})
 		return
 	}
-	durSec := float64(len(samples)) / 16000
-	slog.Info("task_wav_loaded", "task_id", taskID, "samples", len(samples), "duration_sec", durSec)
+	totalDur := dur(samples)
+	slog.Info("task_wav_loaded", "task_id", taskID, "duration", totalDur)
 
-	segments := vad.Detect(vd, samples)
-	slog.Info("task_vad_done", "task_id", taskID, "segments", len(segments))
+	var lastPct int
+	segments := vad.Detect(vd, samples, func(processed, total int) {
+		pct := processed * 100 / total
+		if pct-lastPct >= 10 || pct >= 100 {
+			lastPct = pct
+			slog.Info("task_vad_progress", "task_id", taskID,
+				"processed", durSec(float64(processed)), "total", durSec(float64(total)), "pct", pct)
+			// VAD 只是预处理，整体进度只占 0~5%
+			s.Store.UpdateTask(taskID, map[string]interface{}{"progress": pct * 5 / 100})
+		}
+	})
+
 	if len(segments) == 0 {
 		s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": "未检测到语音"})
 		return
 	}
 
-	// Step 3: ASR
+	// 统计总语音时长，用于 ASR 阶段按段时长加权计算进度
+	totalSpeech := 0
+	for _, seg := range segments {
+		totalSpeech += len(seg.Samples)
+	}
+	slog.Info("task_vad_done", "task_id", taskID,
+		"segments", len(segments), "total_speech", durSec(float64(totalSpeech)))
+
+	// Step 3: ASR — 逐段串行发送 FunASR（等上一段返回结果后再发下一段）
+	// 进度按段时长加权：5% ~ 100%，长段耗时久、进度推进慢，符合直觉。
 	var allText strings.Builder
+	totalSeg := len(segments)
+	processedSpeech := 0
 	for i, seg := range segments {
-		pct := int(float64(i) / float64(len(segments)) * 100)
-		s.Store.UpdateTask(taskID, map[string]interface{}{"progress": pct})
+		segNum := i + 1
+		segDur := durSec(float64(len(seg.Samples)))
+		slog.Info("task_asr_segment", "task_id", taskID,
+			"segment", fmt.Sprintf("%d/%d", segNum, totalSeg), "duration", segDur)
+
 		text, err := funasr.Send(asrHost, asrPort, seg.Samples, i)
 		if err != nil {
 			s.Store.UpdateTask(taskID, map[string]interface{}{
-				"status": "failed", "error": fmt.Sprintf("ASR识别失败(segment %d): %v", i+1, err),
+				"status": "failed", "error": fmt.Sprintf("ASR识别失败(segment %d/%d): %v", segNum, totalSeg, err),
 			})
 			return
 		}
@@ -154,6 +178,15 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 			allText.WriteString("\n")
 		}
 		allText.WriteString(text)
+
+		// 段完成，累计已处理语音时长，更新加权进度
+		processedSpeech += len(seg.Samples)
+		progress := 5 + 95*processedSpeech/totalSpeech
+		s.Store.UpdateTask(taskID, map[string]interface{}{"progress": progress})
+		slog.Info("task_asr_done", "task_id", taskID,
+			"segment", fmt.Sprintf("%d/%d", segNum, totalSeg),
+			"processed", durSec(float64(processedSpeech)), "total", durSec(float64(totalSpeech)),
+			"pct", progress, "result_len", len(text))
 	}
 
 	resultText := allText.String()
@@ -176,4 +209,15 @@ func convertToWav(inputPath, outputPath string) error {
 		return fmt.Errorf("ffmpeg error: %v (stderr: %s)", err, string(stderr))
 	}
 	return nil
+}
+
+// durSec 将样本数转换为可读时长字符串，如 "01:36:00"（1小时36分）。
+func durSec(n float64) string {
+	sec := int(n / 16000)
+	return fmt.Sprintf("%02d:%02d:%02d", sec/3600, (sec%3600)/60, sec%60)
+}
+
+// dur 将样本切片转换为可读时长字符串。
+func dur(samples []float32) string {
+	return durSec(float64(len(samples)))
 }

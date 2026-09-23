@@ -39,7 +39,7 @@ func (s *Server) HandleStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleMyTasks(w http.ResponseWriter, r *http.Request) {
-	var body struct{ UID int `json:"uid"` }
+	var body struct{ UID int `json:"uid,string"` }
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "无效的请求体"})
 		return
@@ -101,7 +101,7 @@ func (s *Server) HandleAllTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleClearTasks(w http.ResponseWriter, r *http.Request) {
-	var body struct{ UID int `json:"uid"` }
+	var body struct{ UID int `json:"uid,string"` }
 	if r.Body != nil {
 		json.NewDecoder(r.Body).Decode(&body)
 	}
