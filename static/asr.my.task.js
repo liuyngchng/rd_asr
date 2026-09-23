@@ -112,20 +112,20 @@ function renderTasksTable(tasks) {
 
 function buildStatusBadge(task) {
     const map = {
-        'converting': { cls: 'status-converting', key: 'asr.status_converting' },
-        'processing': { cls: 'status-processing', key: 'asr.status_sending' },
-        'transcribing': { cls: 'status-transcribing', key: 'asr.status_transcribing' },
-        'completed': { cls: 'status-completed', key: 'asr.status_completed' },
-        'failed': { cls: 'status-failed', key: 'asr.status_failed' },
+        'converting':    { cls: 'status-converting',    key: 'asr.status_converting' },
+        'splitting':     { cls: 'status-splitting',     key: 'asr.status_splitting' },
+        'transcribing':  { cls: 'status-transcribing',  key: 'asr.status_transcribing' },
+        'completed':     { cls: 'status-completed',     key: 'asr.status_completed' },
+        'failed':        { cls: 'status-failed',        key: 'asr.status_failed' },
     };
-    const m = map[task.status] || map['processing'];
+    const m = map[task.status] || map['converting'];
     return `<span class="status-badge ${m.cls}">${__(m.key)}</span>`;
 }
 
 function buildProgressBar(task) {
-    // 转录中阶段没有进度可展示，只显示文字
-    if (task.status === 'transcribing') {
-        return `<span style="color: #1890ff; font-size: 0.85rem;">${__('asr.status_transcribing')}...</span>`;
+    // 已完成／失败不显示进度条
+    if (task.status === 'completed' || task.status === 'failed') {
+        return `<span style="color: #999;">-</span>`;
     }
     const pct = task.progress || 0;
     return `

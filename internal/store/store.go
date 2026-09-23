@@ -1,7 +1,6 @@
 package store
 
 import (
-	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"log/slog"
@@ -70,7 +69,7 @@ func (s *Store) init() error {
 }
 
 func (s *Store) CreateTask(originalFilename, originalPath, convertedPath string, uid int) (string, error) {
-	taskID := UUID()
+	taskID := fmt.Sprintf("%d", time.Now().UnixMilli())
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, err := s.db.Exec(
@@ -156,14 +155,6 @@ func (s *Store) DeleteTask(taskID string) error {
 }
 
 func (s *Store) Close() error { return s.db.Close() }
-
-func UUID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
-}
 
 func scanTask(row *sql.Row) (*Task, error) {
 	t := &Task{}

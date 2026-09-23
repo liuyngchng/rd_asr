@@ -6,9 +6,12 @@ ARG HTTPS_PROXY
 ARG http_proxy
 ARG https_proxy
 
-# Install ffmpeg (required for audio format conversion)
-RUN set -a && \
-    [ -n "$HTTP_PROXY" ] && export http_proxy="$HTTP_PROXY" && export https_proxy="${HTTPS_PROXY:-$HTTP_PROXY}" && echo "Acquire::http::Proxy \"$HTTP_PROXY\";" > /etc/apt/apt.conf.d/01proxy; \
+# Install ffmpeg (required for audio format conversion / VAD preprocessing)
+RUN if [ -n "${HTTP_PROXY:-}" ]; then \
+        echo "Acquire::http::Proxy \"$HTTP_PROXY\";" > /etc/apt/apt.conf.d/01proxy; \
+        export http_proxy="$HTTP_PROXY"; \
+        export https_proxy="${HTTPS_PROXY:-$HTTP_PROXY}"; \
+    fi && \
     apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg ca-certificates && \
     rm -rf /var/lib/apt/lists/* /etc/apt/apt.conf.d/01proxy

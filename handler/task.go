@@ -94,7 +94,7 @@ func (s *Server) HandleAllTasks(w http.ResponseWriter, r *http.Request) {
 			"original_filename": t.OriginalFilename,
 			"status":            t.Status,
 			"timestamp":         t.CreatedAt,
-			"has_result":        t.Status == "completed",
+			"has_result": t.Status == string(StatusCompleted),
 		})
 	}
 	WriteJSON(w, http.StatusOK, map[string]interface{}{"tasks": result})
@@ -112,7 +112,7 @@ func (s *Server) HandleClearTasks(w http.ResponseWriter, r *http.Request) {
 	}
 	count := 0
 	for _, t := range tasks {
-		if t.Status == "completed" || t.Status == "failed" {
+		if t.Status == string(StatusCompleted) || t.Status == string(StatusFailed) {
 			cleanFiles(&t)
 			s.Store.DeleteTask(t.TaskID)
 			count++
@@ -143,7 +143,7 @@ func (s *Server) HandleDownload(w http.ResponseWriter, r *http.Request) {
 		WriteJSON(w, http.StatusNotFound, map[string]string{"error": "任务不存在"})
 		return
 	}
-	if task.Status != "completed" || task.ResultText == nil {
+	if task.Status != string(StatusCompleted) || task.ResultText == nil {
 		WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "任务未完成或结果不存在"})
 		return
 	}

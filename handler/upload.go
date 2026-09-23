@@ -8,9 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"rd_asr/internal/funasr"
-	"rd_asr/internal/store"
 	"rd_asr/internal/vad"
 
 	sherpa "github.com/k2-fsa/sherpa-onnx-go-linux"
@@ -55,7 +55,7 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		fmt.Sscanf(uidStr, "%d", &uid)
 	}
 
-	safeFilename := fmt.Sprintf("%s%s", store.UUID(), ext)
+	safeFilename := fmt.Sprintf("%d%s", time.Now().UnixMilli(), ext)
 	inputPath := filepath.Join("uploads", safeFilename)
 	saveFile, err := os.Create(inputPath)
 	if err != nil {
@@ -87,7 +87,7 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 
 	WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"task_id": taskID,
-		"status":  "converting",
+		"status":  StatusConverting,
 		"message": "文件已上传，后台开始处理...",
 	})
 }
@@ -98,34 +98,36 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("task_panic", "task_id", taskID, "panic", r)
-			s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": fmt.Sprintf("内部错误: %v", r)})
+			s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusFailed, "error": fmt.Sprintf("内部错误: %v", r)})
 		}
 		os.Remove(inputPath)
 	}()
 
-	// Step 1: ffmpeg
-	s.Store.UpdateTask(taskID, map[string]interface{}{"status": "converting"})
+	// Step 1: ffmpeg — 音频格式转换
+	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusConverting, "progress": 0})
 	originalStem := strings.TrimSuffix(originalName, filepath.Ext(originalName))
-	wavFilename := fmt.Sprintf("%s_%s.wav", originalStem, store.UUID()[:8])
+	wavFilename := fmt.Sprintf("%s_%d.wav", originalStem, time.Now().UnixMilli())
 	wavPath := filepath.Join("converted", wavFilename)
 
 	if err := convertToWav(inputPath, wavPath); err != nil {
-		s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": fmt.Sprintf("音频转换失败: %v", err)})
+		s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusFailed, "error": fmt.Sprintf("音频转换失败: %v", err)})
 		return
 	}
-	s.Store.UpdateTask(taskID, map[string]interface{}{"converted_path": wavPath, "status": "processing", "progress": 0})
+	slog.Info("task_convert_done", "task_id", taskID)
+	s.Store.UpdateTask(taskID, map[string]interface{}{"converted_path": wavPath, "progress": 100})
 
-	// Step 2: VAD — 分块处理，记录进度
+	// Step 2: VAD 语音切分 — 每 10% 更新进度
+	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusSplitting, "progress": 0})
 	vd, err := vad.LoadModel("silero_vad.onnx")
 	if err != nil {
-		s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": fmt.Sprintf("加载VAD模型失败: %v", err)})
+		s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusFailed, "error": fmt.Sprintf("加载VAD模型失败: %v", err)})
 		return
 	}
 	defer sherpa.DeleteVoiceActivityDetector(vd)
 
 	samples, err := vad.ReadWav(wavPath)
 	if err != nil {
-		s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": fmt.Sprintf("读取音频失败: %v", err)})
+		s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusFailed, "error": fmt.Sprintf("读取音频失败: %v", err)})
 		return
 	}
 	totalDur := dur(samples)
@@ -138,26 +140,25 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 			lastPct = pct
 			slog.Info("task_vad_progress", "task_id", taskID,
 				"processed", durSec(float64(processed)), "total", durSec(float64(total)), "pct", pct)
-			// VAD 只是预处理，整体进度只占 0~5%
-			s.Store.UpdateTask(taskID, map[string]interface{}{"progress": pct * 5 / 100})
+			s.Store.UpdateTask(taskID, map[string]interface{}{"progress": pct})
 		}
 	})
 
 	if len(segments) == 0 {
-		s.Store.UpdateTask(taskID, map[string]interface{}{"status": "failed", "error": "未检测到语音"})
+		s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusFailed, "error": "未检测到语音"})
 		return
 	}
 
-	// 统计总语音时长，用于 ASR 阶段按段时长加权计算进度
 	totalSpeech := 0
 	for _, seg := range segments {
 		totalSpeech += len(seg.Samples)
 	}
 	slog.Info("task_vad_done", "task_id", taskID,
 		"segments", len(segments), "total_speech", durSec(float64(totalSpeech)))
+	s.Store.UpdateTask(taskID, map[string]interface{}{"progress": 100})
 
-	// Step 3: ASR — 逐段串行发送 FunASR（等上一段返回结果后再发下一段）
-	// 进度按段时长加权：5% ~ 100%，长段耗时久、进度推进慢，符合直觉。
+	// Step 3: ASR 转录 — 按语音时长加权推进进度
+	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusTranscribing, "progress": 0})
 	var allText strings.Builder
 	totalSeg := len(segments)
 	processedSpeech := 0
@@ -170,7 +171,7 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 		text, err := funasr.Send(asrHost, asrPort, seg.Samples, i)
 		if err != nil {
 			s.Store.UpdateTask(taskID, map[string]interface{}{
-				"status": "failed", "error": fmt.Sprintf("ASR识别失败(segment %d/%d): %v", segNum, totalSeg, err),
+				"status": StatusFailed, "error": fmt.Sprintf("ASR识别失败(segment %d/%d): %v", segNum, totalSeg, err),
 			})
 			return
 		}
@@ -179,9 +180,8 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 		}
 		allText.WriteString(text)
 
-		// 段完成，累计已处理语音时长，更新加权进度
 		processedSpeech += len(seg.Samples)
-		progress := 5 + 95*processedSpeech/totalSpeech
+		progress := processedSpeech * 100 / totalSpeech
 		s.Store.UpdateTask(taskID, map[string]interface{}{"progress": progress})
 		slog.Info("task_asr_done", "task_id", taskID,
 			"segment", fmt.Sprintf("%d/%d", segNum, totalSeg),
@@ -192,7 +192,7 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 	resultText := allText.String()
 	resultFile := filepath.Join("results", taskID+".txt")
 	os.WriteFile(resultFile, []byte(resultText), 0644)
-	s.Store.UpdateTask(taskID, map[string]interface{}{"status": "completed", "result_text": resultText, "progress": 100})
+	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusCompleted, "result_text": resultText, "progress": 100})
 	slog.Info("task_done", "task_id", taskID, "text_length", len(resultText))
 }
 

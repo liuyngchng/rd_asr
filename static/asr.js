@@ -5,12 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initEventListeners() {
-    const uploadBtn = document.getElementById('uploadButton');
     const fileInput = document.getElementById('fileInput');
-
-    uploadBtn.addEventListener('click', () => {
-        fileInput.click();
-    });
 
     fileInput.addEventListener('change', (e) => {
         handleFiles(e.target.files);
@@ -40,17 +35,13 @@ function handleFiles(files) {
 function updateFileList() {
     const container = document.getElementById('fileListContainer');
     const fileList = document.getElementById('fileList');
-    const badge = document.getElementById('fileCountBadge');
 
     if (selectedFiles.length === 0) {
         container.style.display = 'none';
-        badge.style.display = 'none';
         return;
     }
 
     container.style.display = 'block';
-    badge.style.display = 'flex';
-    badge.textContent = selectedFiles.length;
 
     fileList.innerHTML = '';
     selectedFiles.forEach((file, index) => {
@@ -103,9 +94,13 @@ async function uploadAllFiles() {
 }
 
 function setUploadButtonEnabled(enabled) {
-    const btn = document.getElementById('uploadButton');
-    btn.disabled = !enabled;
-    btn.classList.toggle('disabled', !enabled);
+    const fileInput = document.getElementById('fileInput');
+    const label = fileInput ? fileInput.closest('.upload-btn') : null;
+    fileInput.disabled = !enabled;
+    if (label) {
+        label.style.opacity = enabled ? '1' : '0.6';
+        label.style.pointerEvents = enabled ? 'auto' : 'none';
+    }
 }
 
 async function uploadFile(file) {

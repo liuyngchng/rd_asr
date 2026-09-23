@@ -54,6 +54,9 @@ func main() {
 	})
 	mux.HandleFunc("/asr/task", srv.HandleTaskPage)
 	mux.HandleFunc("/static/", handler.HandleStatic)
+	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("/webfonts/", handler.HandleWebfonts)
 	mux.HandleFunc("/api/upload", srv.HandleUpload)
 	mux.HandleFunc("/api/status/", srv.HandleStatus)
