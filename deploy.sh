@@ -6,10 +6,18 @@ STAGE_DIR="build_output"
 IMAGE_NAME="${APP_NAME}"
 IMAGE_TAG="${IMAGE_TAG:-1.0}"
 
-# ── Proxy settings (internal network) ──────────────────────────
-export HTTP_PROXY="${HTTP_PROXY:-http://proxy3.bj.petrochina:8080}"
-export HTTPS_PROXY="${HTTPS_PROXY:-http://proxy3.bj.petrochina:8080}"
-export GOPROXY="${GOPROXY:-https://goproxy.cn,direct}"
+# ── 检查代理 ──────────────────────────────────────────────────
+if [ -z "${HTTP_PROXY:-}" ] && [ -z "${http_proxy:-}" ]; then
+    echo "⚠  未设置 HTTP_PROXY，如果处在内网环境请先设置代理："
+    echo ""
+    echo "   export HTTP_PROXY=http://your-proxy:port"
+    echo "   export HTTPS_PROXY=http://your-proxy:port"
+    echo "   export GOPROXY=https://goproxy.cn,direct"
+    echo ""
+    echo "   然后重新运行:"
+    echo "   ./deploy.sh"
+    echo ""
+fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Deploy ${APP_NAME} via Docker (from source)"
@@ -43,7 +51,6 @@ cp -r templates      "${STAGE_DIR}/"
 cp -r static         "${STAGE_DIR}/"
 cp silero_vad.onnx   "${STAGE_DIR}/"
 
-# cfg.yml 策略：从 template 生成（本地测试用的 cfg.yml 不进镜像）
 if [ -f "cfg.yml.template" ]; then
     cp cfg.yml.template "${STAGE_DIR}/cfg.yml"
 else
@@ -55,11 +62,18 @@ mkdir -p "${STAGE_DIR}/uploads" "${STAGE_DIR}/converted" "${STAGE_DIR}/results"
 
 # ── 5. Build Docker image ──────────────────────────────────────
 echo "[4/4] Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG} ..."
+DOCKER_BUILD_ARGS=()
+if [ -n "${HTTP_PROXY:-}" ]; then
+    DOCKER_BUILD_ARGS+=(--build-arg HTTP_PROXY="${HTTP_PROXY}")
+    DOCKER_BUILD_ARGS+=(--build-arg http_proxy="${HTTP_PROXY}")
+fi
+if [ -n "${HTTPS_PROXY:-}" ]; then
+    DOCKER_BUILD_ARGS+=(--build-arg HTTPS_PROXY="${HTTPS_PROXY}")
+    DOCKER_BUILD_ARGS+=(--build-arg https_proxy="${HTTPS_PROXY}")
+fi
+
 docker build --rm -f Dockerfile \
-    --build-arg HTTP_PROXY="${HTTP_PROXY}" \
-    --build-arg HTTPS_PROXY="${HTTPS_PROXY}" \
-    --build-arg http_proxy="${HTTP_PROXY}" \
-    --build-arg https_proxy="${HTTPS_PROXY}" \
+    "${DOCKER_BUILD_ARGS[@]}" \
     -t "${IMAGE_NAME}:${IMAGE_TAG}" .
 
 # ── 6. Summary ─────────────────────────────────────────────────

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -92,21 +91,6 @@ func (s *Server) redirectPortal(w http.ResponseWriter, r *http.Request) {
 		portalURL += "&warning_info=" + warningInfo
 	}
 	http.Redirect(w, r, portalURL, http.StatusFound)
-}
-
-func (s *Server) addAccessCount(uid int) {
-	statsURI := s.Config.Api.StatsAPI
-	if statsURI == "" {
-		return
-	}
-	body := fmt.Sprintf(`{"uid":%d,"count":1,"app":"%s"}`, uid, AppTypeASR)
-	resp, err := http.Post(statsURI+"/statistics/access", "application/json", strings.NewReader(body))
-	if err != nil {
-		slog.Warn("stats_call_failed", "error", err, "uid", uid)
-		return
-	}
-	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
 }
 
 func GetClientIP(r *http.Request) string {

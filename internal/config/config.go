@@ -18,7 +18,6 @@ type SysConfig struct {
 
 type ApiConfig struct {
 	AuthAPI      string `yaml:"auth_api"`
-	StatsAPI     string `yaml:"stats_api"`
 	AsrHTTPAPI   string `yaml:"asr_http_api_uri"`
 	AsrWSAPI     string `yaml:"asr_ws_api_uri"`
 	AsrAPIKey    string `yaml:"asr_api_key"`

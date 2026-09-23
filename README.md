@@ -65,9 +65,6 @@ sys:
 funasr:
   host: 127.0.0.1             # FunASR WS 地址
   port: 10095                 # FunASR WS 端口
-
-api:
-  stats_api: http://127.0.0.1:19012   # 统计服务（可选）
 ```
 
 ### 构建
@@ -77,37 +74,18 @@ chmod +x build.sh
 ./build.sh
 ```
 
-构建产物在 `build_output/` 目录下，包含二进制、共享库和所有运行时资源。
+构建产物为 `rd_asr-linux-amd64.tar.gz`。
 
 ### 运行
 
 ```bash
-cd build_output && ./rd_asr
+tar xzf rd_asr-linux-amd64.tar.gz
+cd rd_asr
+vim cfg.yml              # 配置 FunASR 地址 / token 密钥
+./rd_asr
 ```
 
-服务启动在 `http://0.0.0.0:19010`，启动日志会打印一个 debug 访问链接：
-
-```
->>> http://127.0.0.1:19010?t=<token>
-```
-
-### 开发模式
-
-```bash
-go build -o rd_asr . && ./rd_asr
-```
-
-### Docker 构建（可选）
-
-由于 sherpa-onnx 需要 CGO + `.so` 动态库，如需要 Docker 化，推荐：
-
-```dockerfile
-FROM ubuntu:24.04
-RUN apt-get update && apt-get install -y ffmpeg
-COPY build_output/ /opt/asr/
-WORKDIR /opt/asr
-EXPOSE 19010
-CMD ["./rd_asr"]
+### Docker 构建
 ```
 
 ## API 文档

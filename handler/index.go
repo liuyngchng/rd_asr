@@ -20,7 +20,6 @@ func (s *Server) HandleIndex(w http.ResponseWriter, r *http.Request) {
 		s.redirectPortal(w, r)
 		return
 	}
-	go s.addAccessCount(payload.UID)
 	ctx := s.buildContext(payload, tok)
 	slog.Info("index_render", "uid", ctx.UID, "role", payload.Role)
 	s.render(w, "asr_index.html", ctx)
@@ -39,7 +38,6 @@ func (s *Server) HandleTaskPage(w http.ResponseWriter, r *http.Request) {
 		s.redirectPortal(w, r)
 		return
 	}
-	go s.addAccessCount(payload.UID)
 	ctx := s.buildContext(payload, tok)
 	ctx.WarningInfo = r.URL.Query().Get("warning_info")
 	slog.Info("task_page_render", "uid", ctx.UID)
