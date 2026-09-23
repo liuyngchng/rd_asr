@@ -1,0 +1,31 @@
+# Binaries
+rd_asr
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
+# Runtime data directories (created on first run)
+/uploads/
+/converted/
+/results/
+/lib/
+
+# Build artifacts
+/build_output/
+/rd_asr-linux-amd64.tar.gz
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config (commit cfg.yml.template instead)
+cfg.yml

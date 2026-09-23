@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="{{.Lang}}" dir="{{.Dir}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASR 转写任务</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/asr.my.task.css">
+    <script>window.__I18N__ = {{.I18NJS}}; window.__LANG__ = "zh";</script>
+    <script type="text/javascript" src="/static/i18n.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-microphone-alt"></i> ASR 转写任务</h1>
+            <p>查看和管理您的语音转写任务</p>
+            <div style="margin-top: 12px;">
+                <button id="clearCompletedBtn" class="header-action-btn">
+                    <i class="fas fa-broom"></i> 清理已完成
+                </button>
+            </div>
+        </header>
+
+        <div class="tasks-container">
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="spinner"></div>
+            </div>
+            <table id="tasksTable">
+                <thead>
+                    <tr>
+                        <th>No.</th>
+                        <th>文件名</th>
+                        <th>创建时间</th>
+                        <th>状态</th>
+                        <th>进度</th>
+                        <th>下载</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <i class="fas fa-inbox"></i>
+                <h3>暂无任务</h3>
+                <p>您还没有创建任何任务</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="auto-refresh-indicator" id="refreshIndicator">
+        <i class="fas fa-sync-alt"></i> 自动刷新中
+    </div>
+    <input type="hidden" id="uid" name="uid" value="{{.UID}}">
+    <input type="hidden" id="t" name="t" value="{{.Token}}">
+    <script type="text/javascript" src="/static/asr.my.task.js"></script>
+</body>
+</html>
