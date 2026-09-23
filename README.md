@@ -1,6 +1,6 @@
-# RD ASR — Go 版语音识别服务
+# RD ASR — 语音识别服务
 
-基于 Go 重写的 ASR（Automatic Speech Recognition）服务，完整替代原 Python Flask 版本（`apps/asr/app.py`），对外提供 HTTP API + HTML 前端页面。
+基于 Go 重写的 ASR（Automatic Speech Recognition）服务，对外提供 HTTP API + HTML 前端页面。
 
 ## 技术栈
 

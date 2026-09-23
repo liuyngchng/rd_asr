@@ -1,6 +1,9 @@
 # Binaries
 rd_asr
 
+# test files
+**/*.wav
+
 # SQLite database files
 *.db
 *.db-shm

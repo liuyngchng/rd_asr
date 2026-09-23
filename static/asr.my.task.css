@@ -55,25 +55,27 @@ body {
 }
 
 .container {
-    width: auto;
-    min-width: 1024px;
-    max-width: 1400px;
+    width: 70vw;
+    height: 70vh;
     background: white;
     border-radius: 16px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 header {
     background: linear-gradient(to right, #4b6cb7, #182848);
     color: white;
-    padding: 25px 30px;
+    padding: 16px 30px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 h1 {
-    font-size: 2rem;
-    margin-bottom: 8px;
+    font-size: 1.3rem;
+    margin-bottom: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -113,16 +115,17 @@ h1 {
 }
 
 .tasks-container {
-    overflow-x: auto;
+    flex: 1;
+    overflow: auto;
     border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     position: relative;
+    padding: 12px;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 900px;
+    min-width: 700px;
 }
 
 th, td {
@@ -294,12 +297,12 @@ tr:hover {
 
 @media (max-width: 768px) {
     .container {
-        min-width: unset;
-        padding: 15px;
+        width: 95vw;
+        height: 90vh;
     }
 
     h1 {
-        font-size: 1.5rem;
+        font-size: 1.1rem;
     }
 
     th, td {

@@ -13,17 +13,18 @@ import (
 )
 
 type Task struct {
-	TaskID           string  `json:"task_id"`
-	UID              int     `json:"uid"`
-	OriginalFilename string  `json:"original_filename"`
-	OriginalPath     string  `json:"original_path"`
-	ConvertedPath    string  `json:"converted_path"`
-	Status           string  `json:"status"`
-	ResultText       *string `json:"result_text"`
-	Progress         int     `json:"progress"`
-	Error            *string `json:"error"`
-	CreatedAt        string  `json:"created_at"`
-	UpdatedAt        string  `json:"updated_at"`
+	TaskID            string  `json:"task_id"`
+	UID               int     `json:"uid"`
+	OriginalFilename  string  `json:"original_filename"`
+	OriginalPath      string  `json:"original_path"`
+	ConvertedPath     string  `json:"converted_path"`
+	Status            string  `json:"status"`
+	ResultText        *string `json:"result_text"`
+	Progress          int     `json:"progress"`
+	CompletedSegments int     `json:"completed_segments"`
+	Error             *string `json:"error"`
+	CreatedAt         string  `json:"created_at"`
+	UpdatedAt         string  `json:"updated_at"`
 }
 
 type Store struct {
@@ -52,17 +53,18 @@ func New(dbPath string) (*Store, error) {
 func (s *Store) init() error {
 	_, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS asr_tasks (
-			task_id          TEXT PRIMARY KEY,
-			uid              INTEGER NOT NULL,
-			original_filename TEXT NOT NULL,
-			original_path    TEXT NOT NULL DEFAULT '',
-			converted_path   TEXT NOT NULL DEFAULT '',
-			status           TEXT NOT NULL DEFAULT 'converting',
-			result_text      TEXT,
-			progress         INTEGER DEFAULT 0,
-			error            TEXT,
-			created_at       TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-			updated_at       TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+			task_id            TEXT PRIMARY KEY,
+			uid                INTEGER NOT NULL,
+			original_filename  TEXT NOT NULL,
+			original_path      TEXT NOT NULL DEFAULT '',
+			converted_path     TEXT NOT NULL DEFAULT '',
+			status             TEXT NOT NULL DEFAULT 'converting',
+			result_text        TEXT,
+			progress           INTEGER DEFAULT 0,
+			completed_segments INTEGER DEFAULT 0,
+			error              TEXT,
+			created_at         TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+			updated_at         TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 		);
 	`)
 	return err
@@ -88,6 +90,7 @@ func (s *Store) UpdateTask(taskID string, fields map[string]interface{}) error {
 	allowed := map[string]bool{
 		"status": true, "result_text": true, "progress": true,
 		"error": true, "converted_path": true, "original_path": true,
+			"completed_segments": true,
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -154,13 +157,35 @@ func (s *Store) DeleteTask(taskID string) error {
 	return nil
 }
 
+// GetResumableTasks 返回所有需要续传的任务（上传/转换/切分/转录中的非终态任务）。
+func (s *Store) GetResumableTasks() ([]Task, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rows, err := s.db.Query(
+		"SELECT * FROM asr_tasks WHERE status IN ('uploading','converting','splitting','transcribing')",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	tasks := make([]Task, 0)
+	for rows.Next() {
+		t, err := scanTaskRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, *t)
+	}
+	return tasks, rows.Err()
+}
+
 func (s *Store) Close() error { return s.db.Close() }
 
 func scanTask(row *sql.Row) (*Task, error) {
 	t := &Task{}
 	var rt, et sql.NullString
 	var op, cp sql.NullString
-	err := row.Scan(&t.TaskID, &t.UID, &t.OriginalFilename, &op, &cp, &t.Status, &rt, &t.Progress, &et, &t.CreatedAt, &t.UpdatedAt)
+	err := row.Scan(&t.TaskID, &t.UID, &t.OriginalFilename, &op, &cp, &t.Status, &rt, &t.Progress, &t.CompletedSegments, &et, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +204,7 @@ func scanTaskRow(rows *sql.Rows) (*Task, error) {
 	t := &Task{}
 	var rt, et sql.NullString
 	var op, cp sql.NullString
-	err := rows.Scan(&t.TaskID, &t.UID, &t.OriginalFilename, &op, &cp, &t.Status, &rt, &t.Progress, &et, &t.CreatedAt, &t.UpdatedAt)
+	err := rows.Scan(&t.TaskID, &t.UID, &t.OriginalFilename, &op, &cp, &t.Status, &rt, &t.Progress, &t.CompletedSegments, &et, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

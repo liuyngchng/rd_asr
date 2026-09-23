@@ -21,14 +21,16 @@ body {
     gap: 16px;
 }
 
-/* ── 卡片 ── */
+/* ── 卡片：70% 宽 × 70% 高，居中 ── */
 .card {
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 2px 16px rgba(0,0,0,0.08);
-    width: 420px;
-    max-width: 95vw;
+    width: 70vw;
+    height: 70vh;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .card-top {
@@ -60,6 +62,11 @@ body {
 .card-link:hover { color: #fff; }
 
 .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     padding: 32px 28px 36px;
     text-align: center;
 }
@@ -265,7 +272,10 @@ body {
 .file-list::-webkit-scrollbar-thumb { background: #d1d1d1; border-radius: 3px; }
 
 /* ── 移动端 ── */
-@media (max-width: 460px) {
-    .card { max-width: 100%; border-radius: 0; }
-    .card-body { padding: 24px 18px 28px; }
+@media (max-width: 768px) {
+    .card {
+        width: 95vw;
+        height: 90vh;
+    }
+    .card-body { padding: 20px 16px 24px; }
 }

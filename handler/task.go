@@ -65,6 +65,10 @@ func (s *Server) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Debug("delete_task", "task_id", body.TaskID)
+
+	// 先取消正在运行的 goroutine（如果有的话）
+	s.cancelTask(body.TaskID)
+
 	task, _ := s.Store.GetTask(body.TaskID)
 	if task != nil {
 		cleanFiles(task)
@@ -113,6 +117,8 @@ func (s *Server) HandleClearTasks(w http.ResponseWriter, r *http.Request) {
 	count := 0
 	for _, t := range tasks {
 		if t.Status == string(StatusCompleted) || t.Status == string(StatusFailed) {
+			// 稳妥起见：即使理论上已完成/失败的任务没有 goroutine 在跑，也先取消一次
+			s.cancelTask(t.TaskID)
 			cleanFiles(&t)
 			s.Store.DeleteTask(t.TaskID)
 			count++

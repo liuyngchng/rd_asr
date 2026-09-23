@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"rd_asr/internal/config"
 	"rd_asr/internal/i18n"
@@ -17,7 +19,7 @@ import (
 
 const AppTypeASR = "asr"
 
-type context struct {
+type pageCtx struct {
 	Lang        string
 	Dir         string
 	SysName     string
@@ -32,6 +34,9 @@ type context struct {
 type Server struct {
 	Store  *store.Store
 	Config *config.Config
+
+	mu      sync.Mutex
+	cancels map[string]context.CancelFunc // taskID → cancel
 }
 
 // WriteJSON sends a JSON response.
@@ -45,7 +50,7 @@ func (s *Server) WriteJSON(w http.ResponseWriter, status int, data interface{}) 
 	WriteJSON(w, status, data)
 }
 
-func (s *Server) render(w http.ResponseWriter, tmplName string, ctx context) {
+func (s *Server) render(w http.ResponseWriter, tmplName string, ctx pageCtx) {
 	tmplPath := filepath.Join("templates", tmplName)
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
@@ -59,14 +64,14 @@ func (s *Server) render(w http.ResponseWriter, tmplName string, ctx context) {
 	}
 }
 
-func (s *Server) buildContext(payload *token.Payload, tokenStr string) context {
+func (s *Server) buildContext(payload *token.Payload, tokenStr string) pageCtx {
 	uid := fmt.Sprintf("%d", payload.UID)
 	hackAdmin := "0"
 	if payload.Role == 2 {
 		hackAdmin = "1"
 	}
 	i18nJSON, _ := json.Marshal(i18n.Map)
-	return context{
+	return pageCtx{
 		Lang:      "zh",
 		Dir:       "ltr",
 		SysName:   s.sysName(),
@@ -114,4 +119,37 @@ func extractTaskID(urlPath, prefix string) string {
 		trimmed = trimmed[:idx]
 	}
 	return strings.TrimRight(trimmed, "/")
+}
+
+// registerCancel 注册一个可取消的任务。
+func (s *Server) registerCancel(taskID string, cancel context.CancelFunc) {
+	s.mu.Lock()
+	if s.cancels == nil {
+		s.cancels = make(map[string]context.CancelFunc)
+	}
+	s.cancels[taskID] = cancel
+	s.mu.Unlock()
+}
+
+// cancelTask 取消正在运行的任务 goroutine（如果存在）。
+// 返回 true 表示确实有任务被取消。
+func (s *Server) cancelTask(taskID string) bool {
+	s.mu.Lock()
+	cancel, ok := s.cancels[taskID]
+	if ok {
+		delete(s.cancels, taskID)
+	}
+	s.mu.Unlock()
+	if ok {
+		cancel()
+		return true
+	}
+	return false
+}
+
+// unregisterCancel 任务完成后注销 cancel（不在 cancelTask 时做，避免重复 delete）。
+func (s *Server) unregisterCancel(taskID string) {
+	s.mu.Lock()
+	delete(s.cancels, taskID)
+	s.mu.Unlock()
 }

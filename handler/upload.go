@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -83,7 +84,7 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go s.processAudio(taskID, inputPath, s.Config.Funasr.Host, s.Config.Funasr.Port)
+	go s.processAudio(context.Background(), taskID, inputPath, s.Config.Funasr.Host, s.Config.Funasr.Port)
 
 	WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"task_id": taskID,
@@ -92,7 +93,12 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
+func (s *Server) processAudio(parent context.Context, taskID, inputPath, asrHost string, asrPort int) {
+	// 注册可取消 context
+	ctx, cancel := context.WithCancel(parent)
+	s.registerCancel(taskID, cancel)
+	defer s.unregisterCancel(taskID)
+
 	originalName := filepath.Base(inputPath)
 	slog.Info("task_start", "task_id", taskID, "file", originalName)
 	defer func() {
@@ -103,20 +109,29 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 		os.Remove(inputPath)
 	}()
 
-	// Step 1: ffmpeg — 音频格式转换
-	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusConverting, "progress": 0})
-	originalStem := strings.TrimSuffix(originalName, filepath.Ext(originalName))
-	wavFilename := fmt.Sprintf("%s_%d.wav", originalStem, time.Now().UnixMilli())
-	wavPath := filepath.Join("converted", wavFilename)
-
-	if err := convertToWav(inputPath, wavPath); err != nil {
-		s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusFailed, "error": fmt.Sprintf("音频转换失败: %v", err)})
-		return
+	task, _ := s.Store.GetTask(taskID)
+	completed := 0
+	if task != nil {
+		completed = task.CompletedSegments
 	}
-	slog.Info("task_convert_done", "task_id", taskID)
-	s.Store.UpdateTask(taskID, map[string]interface{}{"converted_path": wavPath, "progress": 100})
 
-	// Step 2: VAD 语音切分 — 每 10% 更新进度
+	wavPath := task.ConvertedPath
+
+	// Step 1: ffmpeg（已完成转换则跳过）
+	if wavPath == "" || !fileExists(wavPath) {
+		s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusConverting, "progress": 0})
+		originalStem := strings.TrimSuffix(originalName, filepath.Ext(originalName))
+		wavFilename := fmt.Sprintf("%s_%d.wav", originalStem, time.Now().UnixMilli())
+		wavPath = filepath.Join("converted", wavFilename)
+		if err := convertToWav(inputPath, wavPath); err != nil {
+			s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusFailed, "error": fmt.Sprintf("音频转换失败: %v", err)})
+			return
+		}
+		slog.Info("task_convert_done", "task_id", taskID)
+		s.Store.UpdateTask(taskID, map[string]interface{}{"converted_path": wavPath, "progress": 100})
+	}
+
+	// Step 2: VAD（每次必跑，因分段数据不持久化）
 	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusSplitting, "progress": 0})
 	vd, err := vad.LoadModel("silero_vad.onnx")
 	if err != nil {
@@ -154,22 +169,39 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 		totalSpeech += len(seg.Samples)
 	}
 	slog.Info("task_vad_done", "task_id", taskID,
-		"segments", len(segments), "total_speech", durSec(float64(totalSpeech)))
+		"segments", len(segments), "total_speech", durSec(float64(totalSpeech)), "resume_from", completed)
 	s.Store.UpdateTask(taskID, map[string]interface{}{"progress": 100})
 
-	// Step 3: ASR 转录 — 按语音时长加权推进进度
+	// Step 3: ASR — 断点续传，跳过已完成段
 	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusTranscribing, "progress": 0})
+
+	// 从结果文件恢复已转录文本
 	var allText strings.Builder
+	resultFile := filepath.Join("results", taskID+".txt")
+	if data, err := os.ReadFile(resultFile); err == nil {
+		allText.Write(data)
+	}
+
 	totalSeg := len(segments)
 	processedSpeech := 0
 	for i, seg := range segments {
+		if i < completed {
+			processedSpeech += len(seg.Samples)
+			continue
+		}
 		segNum := i + 1
 		segDur := durSec(float64(len(seg.Samples)))
 		slog.Info("task_asr_segment", "task_id", taskID,
 			"segment", fmt.Sprintf("%d/%d", segNum, totalSeg), "duration", segDur)
 
-		text, err := funasr.Send(asrHost, asrPort, seg.Samples, i)
+		text, err := funasr.Send(ctx, asrHost, asrPort, seg.Samples, i)
 		if err != nil {
+			// 被用户取消：不是错误，直接退出
+			if ctx.Err() != nil {
+				slog.Info("task_cancelled", "task_id", taskID,
+					"segment", fmt.Sprintf("%d/%d", segNum, totalSeg))
+				return
+			}
 			slog.Error("task_asr_failed", "task_id", taskID,
 				"segment", fmt.Sprintf("%d/%d", segNum, totalSeg), "error", err)
 			s.Store.UpdateTask(taskID, map[string]interface{}{
@@ -177,10 +209,15 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 			})
 			return
 		}
-		if i > 0 {
+		if allText.Len() > 0 {
 			allText.WriteString("\n")
 		}
 		allText.WriteString(text)
+
+		// 每完成一段就持久化：写结果文件 + 更新 completed_segments
+		os.WriteFile(resultFile, []byte(allText.String()), 0644)
+		completed = segNum
+		s.Store.UpdateTask(taskID, map[string]interface{}{"completed_segments": completed})
 
 		processedSpeech += len(seg.Samples)
 		progress := processedSpeech * 100 / totalSpeech
@@ -192,8 +229,6 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 	}
 
 	resultText := allText.String()
-	resultFile := filepath.Join("results", taskID+".txt")
-	os.WriteFile(resultFile, []byte(resultText), 0644)
 	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusCompleted, "result_text": resultText, "progress": 100})
 	slog.Info("task_done", "task_id", taskID, "text_length", len(resultText))
 }
@@ -222,4 +257,32 @@ func durSec(n float64) string {
 // dur 将样本切片转换为可读时长字符串。
 func dur(samples []float32) string {
 	return durSec(float64(len(samples)))
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// ProcessResumable 扫描所有非终态任务，续传处理。
+// 服务重启时由 main.go 调用。
+func (s *Server) ProcessResumable() {
+	tasks, err := s.Store.GetResumableTasks()
+	if err != nil {
+		slog.Warn("resume_scan_failed", "error", err)
+		return
+	}
+	if len(tasks) == 0 {
+		return
+	}
+	slog.Info("resume_tasks_found", "count", len(tasks))
+	for _, t := range tasks {
+		if t.OriginalPath == "" || !fileExists(t.OriginalPath) {
+			slog.Warn("resume_skip_no_file", "task_id", t.TaskID, "status", t.Status)
+			s.Store.UpdateTask(t.TaskID, map[string]interface{}{"status": StatusFailed, "error": "原始文件丢失"})
+			continue
+		}
+		slog.Info("resume_task", "task_id", t.TaskID, "status", t.Status, "completed_segments", t.CompletedSegments)
+		go s.processAudio(context.Background(), t.TaskID, t.OriginalPath, s.Config.Funasr.Host, s.Config.Funasr.Port)
+	}
 }

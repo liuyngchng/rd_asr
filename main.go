@@ -44,6 +44,9 @@ func main() {
 	// 创建 handler
 	srv := &handler.Server{Store: st, Config: cfg}
 
+	// 恢复未完成的任务（断点续传）
+	srv.ProcessResumable()
+
 	// 启动时探测 FunASR 服务是否可用
 	if err := funasr.Ping(cfg.Funasr.Host, cfg.Funasr.Port); err != nil {
 		slog.Warn("funasr_unreachable", "host", cfg.Funasr.Host, "port", cfg.Funasr.Port, "error", err)
