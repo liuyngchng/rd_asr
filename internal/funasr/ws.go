@@ -5,11 +5,25 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"rd_asr/internal/vad"
 
 	"github.com/gorilla/websocket"
 )
+
+// dialer 内网 FunASR 直连，不走环境变量里的 HTTP 代理。
+var dialer = &websocket.Dialer{
+	Proxy:            nil, // 绕过 HTTP_PROXY/HTTPS_PROXY
+	HandshakeTimeout: 45 * time.Second,
+}
+
+func newConn(host string, port int) (*websocket.Conn, *http.Response, error) {
+	addr := fmt.Sprintf("ws://%s:%d", host, port)
+	return dialer.Dial(addr, http.Header{
+		"Sec-WebSocket-Protocol": {"binary"},
+	})
+}
 
 type initMsg struct {
 	Mode                 string `json:"mode"`
@@ -41,11 +55,22 @@ func (m *resultMsg) LogValue() slog.Value {
 	)
 }
 
+// Ping 探测 FunASR WebSocket 服务是否可连接，返回错误说明。
+// 连接成功立即关闭（只验证握手，不发送音频）。
+func Ping(host string, port int) error {
+	conn, resp, err := newConn(host, port)
+	if err != nil {
+		if resp != nil {
+			return fmt.Errorf("websocket dial: %w (status=%d)", err, resp.StatusCode)
+		}
+		return fmt.Errorf("websocket dial: %w", err)
+	}
+	defer conn.Close()
+	return nil
+}
+
 func Send(host string, port int, samples []float32, segIdx int) (string, error) {
-	addr := fmt.Sprintf("ws://%s:%d", host, port)
-	conn, resp, err := websocket.DefaultDialer.Dial(addr, http.Header{
-		"Sec-WebSocket-Protocol": {"binary"},
-	})
+	conn, resp, err := newConn(host, port)
 	if err != nil {
 		if resp != nil {
 			return "", fmt.Errorf("websocket dial: %w (status=%d)", err, resp.StatusCode)

@@ -8,6 +8,7 @@ import (
 
 	"rd_asr/handler"
 	"rd_asr/internal/config"
+	"rd_asr/internal/funasr"
 	"rd_asr/internal/logger"
 	"rd_asr/internal/store"
 	"rd_asr/internal/token"
@@ -42,6 +43,13 @@ func main() {
 
 	// 创建 handler
 	srv := &handler.Server{Store: st, Config: cfg}
+
+	// 启动时探测 FunASR 服务是否可用
+	if err := funasr.Ping(cfg.Funasr.Host, cfg.Funasr.Port); err != nil {
+		slog.Warn("funasr_unreachable", "host", cfg.Funasr.Host, "port", cfg.Funasr.Port, "error", err)
+	} else {
+		slog.Info("funasr_connected", "host", cfg.Funasr.Host, "port", cfg.Funasr.Port)
+	}
 
 	// HTTP 路由
 	mux := http.NewServeMux()

@@ -170,6 +170,8 @@ func (s *Server) processAudio(taskID, inputPath, asrHost string, asrPort int) {
 
 		text, err := funasr.Send(asrHost, asrPort, seg.Samples, i)
 		if err != nil {
+			slog.Error("task_asr_failed", "task_id", taskID,
+				"segment", fmt.Sprintf("%d/%d", segNum, totalSeg), "error", err)
 			s.Store.UpdateTask(taskID, map[string]interface{}{
 				"status": StatusFailed, "error": fmt.Sprintf("ASR识别失败(segment %d/%d): %v", segNum, totalSeg, err),
 			})
