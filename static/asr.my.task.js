@@ -62,6 +62,14 @@ function renderTasksTable(tasks) {
             const timeCell = document.createElement('td');
             row.appendChild(timeCell);
 
+            // 音频时长
+            const audioDurCell = document.createElement('td');
+            row.appendChild(audioDurCell);
+
+            // 转录耗时
+            const transDurCell = document.createElement('td');
+            row.appendChild(transDurCell);
+
             // 状态
             const statusCell = document.createElement('td');
             row.appendChild(statusCell);
@@ -90,17 +98,25 @@ function renderTasksTable(tasks) {
         // 创建时间
         cells[2].textContent = formatDateTime(task.created_at);
 
+        // 音频时长
+        cells[3].textContent = formatDuration(task.audio_duration_sec);
+
+        // 转录耗时
+        cells[4].textContent = task.status === 'completed'
+            ? formatDuration(task.transcription_duration_sec)
+            : '-';
+
         // 状态
-        cells[3].innerHTML = buildStatusBadge(task);
+        cells[5].innerHTML = buildStatusBadge(task);
 
         // 进度
-        cells[4].innerHTML = buildProgressBar(task);
+        cells[6].innerHTML = buildProgressBar(task);
 
         // 下载
-        cells[5].innerHTML = buildDownloadBtn(task);
+        cells[7].innerHTML = buildDownloadBtn(task);
 
         // 操作
-        cells[6].innerHTML = buildActionBtn(task);
+        cells[8].innerHTML = buildActionBtn(task);
     });
 
     // 移除不存在的行
@@ -167,6 +183,18 @@ function formatDateTime(dateString) {
     } catch (e) {
         return dateString;
     }
+}
+
+function formatDuration(totalSec) {
+    if (!totalSec || totalSec <= 0) return '-';
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const parts = [];
+    if (h > 0) parts.push(h + '小时');
+    if (m > 0) parts.push(m + '分钟');
+    if (s > 0 || parts.length === 0) parts.push(s + '秒');
+    return parts.join('');
 }
 
 async function deleteTask(taskId, filename) {

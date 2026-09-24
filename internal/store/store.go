@@ -13,18 +13,20 @@ import (
 )
 
 type Task struct {
-	TaskID            string  `json:"task_id"`
-	UID               int     `json:"uid"`
-	OriginalFilename  string  `json:"original_filename"`
-	OriginalPath      string  `json:"original_path"`
-	ConvertedPath     string  `json:"converted_path"`
-	Status            string  `json:"status"`
-	ResultText        *string `json:"result_text"`
-	Progress          int     `json:"progress"`
-	CompletedSegments int     `json:"completed_segments"`
-	Error             *string `json:"error"`
-	CreatedAt         string  `json:"created_at"`
-	UpdatedAt         string  `json:"updated_at"`
+	TaskID                   string  `json:"task_id"`
+	UID                      int     `json:"uid"`
+	OriginalFilename         string  `json:"original_filename"`
+	OriginalPath             string  `json:"original_path"`
+	ConvertedPath            string  `json:"converted_path"`
+	Status                   string  `json:"status"`
+	ResultText               *string `json:"result_text"`
+	Progress                 int     `json:"progress"`
+	CompletedSegments        int     `json:"completed_segments"`
+	Error                    *string `json:"error"`
+	AudioDurationSec         int     `json:"audio_duration_sec"`
+	TranscriptionDurationSec int     `json:"transcription_duration_sec"`
+	CreatedAt                string  `json:"created_at"`
+	UpdatedAt                string  `json:"updated_at"`
 }
 
 type Store struct {
@@ -63,11 +65,16 @@ func (s *Store) init() error {
 			progress           INTEGER DEFAULT 0,
 			completed_segments INTEGER DEFAULT 0,
 			error              TEXT,
+			audio_duration_sec         INTEGER DEFAULT 0,
+			transcription_duration_sec INTEGER DEFAULT 0,
 			created_at         TEXT NOT NULL DEFAULT (datetime('now','localtime')),
 			updated_at         TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 		);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Store) CreateTask(originalFilename, originalPath, convertedPath string, uid int) (string, error) {
@@ -90,7 +97,8 @@ func (s *Store) UpdateTask(taskID string, fields map[string]interface{}) error {
 	allowed := map[string]bool{
 		"status": true, "result_text": true, "progress": true,
 		"error": true, "converted_path": true, "original_path": true,
-			"completed_segments": true,
+		"completed_segments": true,
+		"audio_duration_sec": true, "transcription_duration_sec": true,
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -185,7 +193,7 @@ func scanTask(row *sql.Row) (*Task, error) {
 	t := &Task{}
 	var rt, et sql.NullString
 	var op, cp sql.NullString
-	err := row.Scan(&t.TaskID, &t.UID, &t.OriginalFilename, &op, &cp, &t.Status, &rt, &t.Progress, &t.CompletedSegments, &et, &t.CreatedAt, &t.UpdatedAt)
+	err := row.Scan(&t.TaskID, &t.UID, &t.OriginalFilename, &op, &cp, &t.Status, &rt, &t.Progress, &t.CompletedSegments, &et, &t.AudioDurationSec, &t.TranscriptionDurationSec, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +212,7 @@ func scanTaskRow(rows *sql.Rows) (*Task, error) {
 	t := &Task{}
 	var rt, et sql.NullString
 	var op, cp sql.NullString
-	err := rows.Scan(&t.TaskID, &t.UID, &t.OriginalFilename, &op, &cp, &t.Status, &rt, &t.Progress, &t.CompletedSegments, &et, &t.CreatedAt, &t.UpdatedAt)
+	err := rows.Scan(&t.TaskID, &t.UID, &t.OriginalFilename, &op, &cp, &t.Status, &rt, &t.Progress, &t.CompletedSegments, &et, &t.AudioDurationSec, &t.TranscriptionDurationSec, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

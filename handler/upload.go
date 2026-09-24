@@ -146,6 +146,8 @@ func (s *Server) processAudio(parent context.Context, taskID, inputPath, asrHost
 		return
 	}
 	totalDur := dur(samples)
+	// 记录音频时长（秒），用于任务列表展示
+	s.Store.UpdateTask(taskID, map[string]interface{}{"audio_duration_sec": int(float64(len(samples)) / 16000)})
 	slog.Info("task_wav_loaded", "task_id", taskID, "duration", totalDur)
 
 	var lastPct int
@@ -174,6 +176,7 @@ func (s *Server) processAudio(parent context.Context, taskID, inputPath, asrHost
 
 	// Step 3: ASR — 断点续传，跳过已完成段
 	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusTranscribing, "progress": 0})
+	transcribeStart := time.Now()
 
 	// 从结果文件恢复已转录文本
 	var allText strings.Builder
@@ -229,7 +232,12 @@ func (s *Server) processAudio(parent context.Context, taskID, inputPath, asrHost
 	}
 
 	resultText := allText.String()
-	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusCompleted, "result_text": resultText, "progress": 100})
+	s.Store.UpdateTask(taskID, map[string]interface{}{
+		"status":                     StatusCompleted,
+		"result_text":                resultText,
+		"progress":                   100,
+		"transcription_duration_sec": int(time.Since(transcribeStart).Seconds()),
+	})
 	slog.Info("task_done", "task_id", taskID, "text_length", len(resultText))
 }
 
