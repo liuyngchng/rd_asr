@@ -14,6 +14,8 @@ type SysConfig struct {
 	CfgToken      string `yaml:"cfg_tkn"`
 	AllowedOrigin string `yaml:"allowed_origin"`
 	CypherKey     string `yaml:"cypher_key"`
+	// FileRetentionDays 磁盘文件保留天数，超过后自动删除（0 表示用默认值 30）
+	FileRetentionDays int `yaml:"file_retention_days"`
 }
 
 type ApiConfig struct {
@@ -58,6 +60,9 @@ func Load() (*Config, error) {
 		if cfg.Sys.CypherKey == "" {
 			loadErr = fmt.Errorf("sys.cypher_key is required in cfg.yml")
 			return
+		}
+		if cfg.Sys.FileRetentionDays == 0 {
+			cfg.Sys.FileRetentionDays = 30
 		}
 		global = &cfg
 	})

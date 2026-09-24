@@ -47,9 +47,15 @@ func main() {
 	// 恢复未完成的任务（断点续传）
 	srv.ProcessResumable()
 
+	// 清理过期文件 + 启动后台定时清理（默认 30 天）
+	srv.CleanExpiredFiles()
+	defer srv.StartFileCleaner()()
+
 	// 启动时探测 FunASR 服务是否可用
 	if err := funasr.Ping(cfg.Funasr.Host, cfg.Funasr.Port); err != nil {
 		slog.Warn("funasr_unreachable", "host", cfg.Funasr.Host, "port", cfg.Funasr.Port, "error", err)
+		fmt.Fprintf(os.Stderr, "\033[31mFATAL: FunASR 服务不可用，程序退出。请检查 %s:%d\033[0m\n", cfg.Funasr.Host, cfg.Funasr.Port)
+		os.Exit(1)
 	} else {
 		slog.Info("funasr_connected", "host", cfg.Funasr.Host, "port", cfg.Funasr.Port)
 	}
@@ -76,6 +82,7 @@ func main() {
 	mux.HandleFunc("/asr/my/task", srv.HandleMyTasks)
 	mux.HandleFunc("/asr/download/", srv.HandleDownload)
 	mux.HandleFunc("/asr/del/task", srv.HandleDeleteTask)
+	mux.HandleFunc("/api/retry", srv.HandleRetryTask)
 
 	// Debug token
 	debugToken, _ := token.Create(1, 0, 86400, cfg.Sys.CypherKey)

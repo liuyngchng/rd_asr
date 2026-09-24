@@ -106,7 +106,6 @@ func (s *Server) processAudio(parent context.Context, taskID, inputPath, asrHost
 			slog.Error("task_panic", "task_id", taskID, "panic", r)
 			s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusFailed, "error": fmt.Sprintf("内部错误: %v", r)})
 		}
-		os.Remove(inputPath)
 	}()
 
 	task, _ := s.Store.GetTask(taskID)

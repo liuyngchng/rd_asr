@@ -128,14 +128,14 @@ function renderTasksTable(tasks) {
 
 function buildStatusBadge(task) {
     const map = {
-        'converting':    { cls: 'status-converting',    key: 'asr.status_converting' },
-        'splitting':     { cls: 'status-splitting',     key: 'asr.status_splitting' },
-        'transcribing':  { cls: 'status-transcribing',  key: 'asr.status_transcribing' },
-        'completed':     { cls: 'status-completed',     key: 'asr.status_completed' },
-        'failed':        { cls: 'status-failed',        key: 'asr.status_failed' },
+        'converting':    { key: 'asr.status_converting' },
+        'splitting':     { key: 'asr.status_splitting' },
+        'transcribing':  { key: 'asr.status_transcribing' },
+        'completed':     { key: 'asr.status_completed' },
+        'failed':        { key: 'asr.status_failed' },
     };
     const m = map[task.status] || map['converting'];
-    return `<span class="status-badge ${m.cls}">${__(m.key)}</span>`;
+    return __(m.key);
 }
 
 function buildProgressBar(task) {
@@ -162,10 +162,18 @@ function buildDownloadBtn(task) {
 }
 
 function buildActionBtn(task) {
-    return `
+    let html = '';
+    if (task.status === 'failed') {
+        html += `
+            <button class="action-btn action-retry" data-task-id="${task.task_id}">
+                <i class="fas fa-redo"></i> ${__('asr.retry')}
+            </button>`;
+    }
+    html += `
         <button class="action-btn action-delete" data-task-id="${task.task_id}" data-filename="${escapeHtml(task.original_filename)}">
             <i class="fas fa-trash"></i> ${__('common.delete')}
         </button>`;
+    return html;
 }
 
 function formatDateTime(dateString) {
@@ -213,6 +221,28 @@ async function deleteTask(taskId, filename) {
     } catch (error) {
         console.error('Delete error:', error);
         alert(__('common.delete_failed_retry'));
+    } finally {
+        hideLoading();
+    }
+}
+
+async function retryTask(taskId) {
+    showLoading();
+    try {
+        const response = await fetch('/api/retry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task_id: taskId })
+        });
+
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || __('asr.retry_failed'));
+        }
+        await fetchTasks();
+    } catch (error) {
+        console.error('Retry error:', error);
+        alert(error.message || __('asr.retry_failed'));
     } finally {
         hideLoading();
     }
@@ -275,11 +305,16 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchTasks();
     startAutoRefresh();
 
-    // 委托事件：删除按钮
+    // 委托事件：删除和重试按钮
     document.getElementById('tasksTable').addEventListener('click', (e) => {
-        const btn = e.target.closest('.action-delete');
-        if (btn) {
-            deleteTask(btn.dataset.taskId, btn.dataset.filename);
+        const delBtn = e.target.closest('.action-delete');
+        if (delBtn) {
+            deleteTask(delBtn.dataset.taskId, delBtn.dataset.filename);
+            return;
+        }
+        const retryBtn = e.target.closest('.action-retry');
+        if (retryBtn) {
+            retryTask(retryBtn.dataset.taskId);
         }
     });
 

@@ -150,41 +150,6 @@ tr:hover {
     background-color: #f0f4ff;
 }
 
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.status-converting {
-    background-color: #fff4e5;
-    color: #ff9800;
-}
-
-.status-splitting {
-    background-color: #e6f4ff;
-    color: #1890ff;
-}
-
-.status-transcribing {
-    background-color: #fff7e6;
-    color: #fa8c16;
-}
-
-.status-completed {
-    background-color: #f6ffed;
-    color: #52c41a;
-}
-
-.status-failed {
-    background-color: #fff2f0;
-    color: #ff4d4f;
-}
-
 .progress-bar-container {
     width: 100%;
     height: 8px;
@@ -222,6 +187,15 @@ tr:hover {
     background-color: #f6ffed;
     color: #52c41a;
     border: 1px solid #b7eb8f;
+}
+
+.action-retry {
+    background-color: #ff9800;
+    color: white;
+}
+
+.action-retry:hover {
+    background-color: #e68900;
 }
 
 .action-delete {
