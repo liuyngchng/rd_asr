@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# 定位项目根目录（本脚本位于 deploy/ 子目录，从任意位置运行均可）
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${ROOT_DIR}"
+
 APP_NAME="rd_asr"
 STAGE_DIR="build_output"
 IMAGE_NAME="${APP_NAME}"
@@ -72,7 +76,7 @@ if [ -n "${HTTPS_PROXY:-}" ]; then
     DOCKER_BUILD_ARGS+=(--build-arg https_proxy="${HTTPS_PROXY}")
 fi
 
-docker build --rm -f Dockerfile \
+docker build --rm -f deploy/Dockerfile \
     "${DOCKER_BUILD_ARGS[@]}" \
     -t "${IMAGE_NAME}:${IMAGE_TAG}" .
 
