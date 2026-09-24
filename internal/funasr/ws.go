@@ -134,7 +134,9 @@ func Send(ctx context.Context, host string, port int, samples []float32, segIdx 
 
 		// 最后一帧带 is_speaking=false（Python 在循环内判断 i == chunk_num - 1 时发送）
 		if i == chunkNum-1 {
-			stopJSON, _ := json.Marshal(struct{ IsSpeaking bool }{false})
+			stopJSON, _ := json.Marshal(struct {
+				IsSpeaking bool `json:"is_speaking"`
+			}{false})
 			if err := conn.WriteMessage(websocket.TextMessage, stopJSON); err != nil {
 				return "", fmt.Errorf("send stop: %w", err)
 			}
@@ -147,6 +149,8 @@ func Send(ctx context.Context, host string, port int, samples []float32, segIdx 
 		return text, nil
 	case err := <-errCh:
 		return "", err
+	case <-recvDone:
+		return "", fmt.Errorf("recv goroutine exited unexpectedly")
 	case <-ctx.Done():
 		conn.Close()
 		return "", ctx.Err()
