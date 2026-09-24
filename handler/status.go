@@ -4,12 +4,11 @@ package handler
 type TaskStatus string
 
 const (
-	StatusUploading    TaskStatus = "uploading"    // 上传中（前端已提交，后端正在保存）
-	StatusConverting   TaskStatus = "converting"   // 音频格式转换中（ffmpeg）
-	StatusSplitting    TaskStatus = "splitting"    // VAD 语音切分中
-	StatusTranscribing TaskStatus = "transcribing" // ASR 转录中（逐段发送 FunASR）
+	StatusConverting   TaskStatus = "converting"   // 音频格式转换（ffmpeg）
+	StatusSplitting    TaskStatus = "splitting"    // VAD 语音切分
+	StatusTranscribing TaskStatus = "transcribing" // ASR 转录（逐段发送 FunASR）
 	StatusCompleted    TaskStatus = "completed"    // 转写完成
-	StatusFailed       TaskStatus = "failed"       // 处理失败
+	StatusFailed       TaskStatus = "failed"       // 异常
 )
 
 // Terminated reports whether the task has reached a final state.

@@ -170,7 +170,7 @@ func (s *Store) GetResumableTasks() ([]Task, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	rows, err := s.db.Query(
-		"SELECT * FROM asr_tasks WHERE status IN ('uploading','converting','splitting','transcribing')",
+		"SELECT * FROM asr_tasks WHERE status IN ('converting','splitting','transcribing')",
 	)
 	if err != nil {
 		return nil, err
