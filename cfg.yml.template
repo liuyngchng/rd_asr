@@ -7,7 +7,8 @@ sys:
     cfg_tkn: foobar
     # 配置可访问的域， 防止跨域攻击
     allowed_origin: http://192,168.1.122
-    # HMAC 签名密钥，用于 token 签名（留空则使用内置默认值）
+    # HMAC token 签名密钥，必须至少 16 字符（必填）
+    # 生成方式: head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 32
     token_secret: ""
 api:
 

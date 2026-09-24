@@ -51,7 +51,12 @@ func main() {
 	defer st.Close()
 
 	// 创建 handler
-	srv := &handler.Server{Store: st, Config: cfg}
+	srv := &handler.Server{
+		Store:        st,
+		Config:       cfg,
+		LoginLimiter: auth.NewLoginLimiter(),
+	}
+	srv.LoginLimiter.StartCleanup()
 
 	// 恢复未完成的任务（断点续传）
 	srv.ProcessResumable()

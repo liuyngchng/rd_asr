@@ -19,6 +19,9 @@ import (
 
 const AppTypeASR = "asr"
 
+// cookieAuthToken 认证 Cookie 名称
+const cookieAuthToken = "auth_token"
+
 type pageCtx struct {
 	Lang        string
 	Dir         string
@@ -33,11 +36,12 @@ type pageCtx struct {
 }
 
 type Server struct {
-	Store  *store.Store
-	Config *config.Config
+	Store        *store.Store
+	Config       *config.Config
+	LoginLimiter *auth.LoginLimiter
 
-	mu      sync.Mutex
-	cancels map[string]context.CancelFunc // taskID → cancel
+	mu               sync.Mutex
+	cancels          map[string]context.CancelFunc // taskID → cancel
 }
 
 // WriteJSON sends a JSON response.
@@ -110,6 +114,43 @@ func GetClientIP(r *http.Request) string {
 		return ip[:idx]
 	}
 	return ip
+}
+
+// setAuthCookie 设置 httpOnly + Secure(仅 HTTPS) + SameSite=Strict 的认证 Cookie
+func setAuthCookie(w http.ResponseWriter, token string, maxAge int, r *http.Request) {
+	secure := r.TLS != nil ||
+		r.Header.Get("X-Forwarded-Proto") == "https" ||
+		r.Header.Get("X-Forwarded-Scheme") == "https"
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieAuthToken,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+// clearAuthCookie 清除认证 Cookie
+func clearAuthCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieAuthToken,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+// tokenFromRequest 从 Cookie 或 URL query 中提取 token
+func tokenFromRequest(r *http.Request) string {
+	if c, err := r.Cookie(cookieAuthToken); err == nil && c.Value != "" {
+		return c.Value
+	}
+	return r.URL.Query().Get("t")
 }
 
 func extractTaskID(urlPath, prefix string) string {

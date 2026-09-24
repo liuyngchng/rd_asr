@@ -13,13 +13,13 @@
             <h1><i class="fas fa-microphone-alt"></i> {{.SysName}}</h1>
             <p>上传音频文件，自动转换为文字</p>
             <div class="card-top-actions">
-                <a href="/asr/task?uid={{.UID}}&app_source={{.AppSource}}&t={{.Token}}" class="card-link">
+                <a href="/asr/task?uid={{.UID}}&app_source={{.AppSource}}" class="card-link">
                     <i class="fas fa-tasks"></i> 我的任务
                 </a>
                 <span style="font-size:0.85rem;color:rgba(255,255,255,0.85);">
                     <i class="fas fa-user"></i> {{.UserName}}
                 </span>
-                <a href="/logout?t={{.Token}}" class="card-link">
+                <a href="/logout" class="card-link">
                     <i class="fas fa-sign-out-alt"></i> 退出
                 </a>
             </div>

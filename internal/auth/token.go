@@ -12,9 +12,6 @@ import (
 	"time"
 )
 
-// defaultTokenSecret 默认 HMAC 签名密钥（cfg.yml 未配置时使用）
-var defaultTokenSecret = []byte("rd_asr_secret_2026")
-
 // token 有效期 2 小时
 const TokenTTL = 2 * time.Hour
 
@@ -36,7 +33,7 @@ type tokenBlacklist struct {
 	once  sync.Once
 }
 
-// Add 将 token 加入黑名单（从 token 中提取签名和过期时间）
+// Add 将 token 加入黑名单
 func (b *tokenBlacklist) Add(tokenStr string, secret []byte) {
 	data, err := base64.RawURLEncoding.DecodeString(tokenStr)
 	if err != nil {
@@ -58,7 +55,6 @@ func (b *tokenBlacklist) Add(tokenStr string, secret []byte) {
 	b.mu.Unlock()
 }
 
-// isBlacklisted 检查签名是否在黑名单中（已过期条目自动清除）
 func (b *tokenBlacklist) isBlacklisted(sig string) bool {
 	b.startCleanup()
 	b.mu.Lock()
@@ -74,7 +70,6 @@ func (b *tokenBlacklist) isBlacklisted(sig string) bool {
 	return true
 }
 
-// startCleanup 启动后台清理过期黑名单条目（每小时）
 func (b *tokenBlacklist) startCleanup() {
 	b.once.Do(func() {
 		go func() {
@@ -96,10 +91,7 @@ func (b *tokenBlacklist) startCleanup() {
 
 // GetTokenSecret 获取当前 token 签名密钥
 func GetTokenSecret(cfgSecret string) []byte {
-	if cfgSecret != "" {
-		return []byte(cfgSecret)
-	}
-	return defaultTokenSecret
+	return []byte(cfgSecret)
 }
 
 // CreateToken 生成 HMAC 签名 token
@@ -115,7 +107,6 @@ func CreateToken(uid int, userName string, role int, ttl time.Duration, secret [
 }
 
 // DecodeToken 解析并验证 token，返回 Payload 或 nil。
-// 已加入黑名单的 token 会被拒绝。
 func DecodeToken(tokenStr string, secret []byte) *Payload {
 	if len(secret) == 0 {
 		return nil

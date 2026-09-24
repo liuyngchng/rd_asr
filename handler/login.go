@@ -19,6 +19,7 @@ type loginRequest struct {
 type changePwdRequest struct {
 	OldPwd string `json:"old_pwd"`
 	NewPwd string `json:"new_pwd"`
+	Token  string `json:"token"` // 可选，Cookie 未设置时传入
 }
 
 // registerRequest 注册请求体
@@ -40,6 +41,15 @@ func (s *Server) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 
 // HandleLogin 处理登录请求
 func (s *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	clientIP := GetClientIP(r)
+
+	// 登录限流
+	if s.LoginLimiter != nil && s.LoginLimiter.IsLocked(clientIP) {
+		slog.Warn("login_rate_limited", "ip", clientIP)
+		WriteJSON(w, http.StatusTooManyRequests, map[string]string{"error": "登录失败次数过多，请 15 分钟后再试"})
+		return
+	}
+
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "参数错误"})
@@ -57,9 +67,17 @@ func (s *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user == nil || !auth.VerifyPassword(req.UserPwd, user.UserPwd) {
-		slog.Warn("login_failed", "user_name", req.UserName)
+		slog.Warn("login_failed", "user_name", req.UserName, "ip", clientIP)
+		if s.LoginLimiter != nil {
+			s.LoginLimiter.RecordFailure(clientIP)
+		}
 		WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "用户名或密码错误"})
 		return
+	}
+
+	// 登录成功，清除失败记录
+	if s.LoginLimiter != nil {
+		s.LoginLimiter.ClearFailures(clientIP)
 	}
 
 	// 检查密码是否过期
@@ -77,6 +95,9 @@ func (s *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("login_success", "user_name", user.UserName, "uid", user.UID, "role", user.Role)
 
+	// 设置 httpOnly Cookie
+	setAuthCookie(w, tokenStr, int(auth.TokenTTL.Seconds()), r)
+
 	WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"status":          "ok",
 		"token":           tokenStr,
@@ -87,27 +108,39 @@ func (s *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleLogout 退出登录，将 token 加入黑名单后跳转到登录页
+// HandleLogout 退出登录，将 token 加入黑名单，清除 Cookie
 func (s *Server) HandleLogout(w http.ResponseWriter, r *http.Request) {
-	if tok := r.URL.Query().Get("t"); tok != "" {
+	tok := ""
+	if c, err := r.Cookie("auth_token"); err == nil && c.Value != "" {
+		tok = c.Value
+	}
+	if tok == "" {
+		tok = r.URL.Query().Get("t")
+	}
+	if tok != "" {
 		auth.TokenBlacklist.Add(tok, auth.GetTokenSecret(s.Config.Sys.TokenSecret))
 		slog.Info("logout_token_blacklisted")
 	}
+	clearAuthCookie(w)
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
 func (s *Server) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
-	tok := r.URL.Query().Get("t")
+	var req changePwdRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "参数错误"})
+		return
+	}
+
+	tok := tokenFromRequest(r)
+	if tok == "" {
+		tok = req.Token
+	}
 	payload := auth.DecodeToken(tok, auth.GetTokenSecret(s.Config.Sys.TokenSecret))
 	if payload == nil {
 		WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "未认证或 token 无效"})
 		return
 	}
 
-	var req changePwdRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "参数错误"})
-		return
-	}
 	if err := auth.ValidatePassword(req.NewPwd); err != nil {
 		WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return

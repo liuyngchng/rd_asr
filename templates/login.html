@@ -95,7 +95,7 @@
                         document.getElementById('forcePwdError').style.display = 'none';
                         document.getElementById('forcePwdModal').style.display = 'flex';
                     } else {
-                        window.location.href = '/?t=' + encodeURIComponent(loginToken);
+                        window.location.href = '/';
                     }
                 } else {
                     errorMsg.textContent = data.error || '登录失败';
@@ -130,14 +130,14 @@
             }
 
             try {
-                var resp = await fetch('/api/change_password?t=' + encodeURIComponent(loginToken), {
+                var resp = await fetch('/api/change_password', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ old_pwd: document.getElementById('userPwd').value.trim(), new_pwd: newPwd })
+                    body: JSON.stringify({ old_pwd: document.getElementById('userPwd').value.trim(), new_pwd: newPwd, token: loginToken })
                 });
                 var data = await resp.json();
                 if (data.status === 'ok') {
-                    window.location.href = '/?t=' + encodeURIComponent(loginToken);
+                    window.location.href = '/';
                 } else {
                     errDiv.textContent = data.error || '修改失败';
                     errDiv.style.display = 'block';

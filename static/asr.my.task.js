@@ -139,8 +139,10 @@ function buildStatusBadge(task) {
 }
 
 function buildProgressBar(task) {
-    // 已完成／失败不显示进度条
-    if (task.status === 'completed' || task.status === 'failed') {
+    if (task.status === 'completed') {
+        return `<span style="color: #52c41a;">100%</span>`;
+    }
+    if (task.status === 'failed') {
         return `<span style="color: #999;">-</span>`;
     }
     const pct = task.progress || 0;
@@ -200,7 +202,7 @@ function formatDuration(totalSec) {
     const s = totalSec % 60;
     const parts = [];
     if (h > 0) parts.push(h + '小时');
-    if (m > 0) parts.push(m + '分钟');
+    if (m > 0) parts.push(m + '分');
     if (s > 0 || parts.length === 0) parts.push(s + '秒');
     return parts.join('');
 }

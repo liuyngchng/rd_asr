@@ -112,9 +112,8 @@ async function uploadFile(file) {
     const formData = new FormData();
     formData.append('file', file);
 
-    // 从隐藏 input 获取 uid 和 t
+    // 从隐藏 input 获取 uid
     const uid = document.getElementById('uid').value || '0';
-    const t = document.getElementById('t').value || '';
     formData.append('uid', uid);
 
     try {
@@ -126,11 +125,11 @@ async function uploadFile(file) {
         const data = await response.json();
 
         if (response.ok) {
-            const tasksUrl = `/asr/task?uid=${uid}&app_source=asr&t=${t}`;
+            const tasksUrl = `/asr/task?uid=${uid}&app_source=asr`;
             showUploadResult(`
                 <div><i class="fas fa-check-circle" style="color: #52c41a; margin-right: 6px;"></i>${__('asr.upload_success')}</div>
                 <div style="margin-top: 8px; font-size: 0.9rem; color: #666;">${__('asr.view_tasks_hint')}</div>
-                <a href="${tasksUrl}" target="_blank" class="goto-tasks-link">
+                <a href="${tasksUrl}" class="goto-tasks-link">
                     <i class="fas fa-tasks"></i> ${__('asr.my_tasks_btn')}
                 </a>
             `, 'success');

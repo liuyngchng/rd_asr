@@ -28,7 +28,7 @@ var Map = map[string]string{
 	"asr.col_create_time":         "创建时间",
 	"asr.col_status":              "状态",
 	"asr.col_progress":            "进度",
-	"asr.col_download":            "文本下载",
+	"asr.col_download":            "下载",
 	"asr.col_actions":             "操作",
 	"asr.status_converting":       "转码中",
 	"asr.status_splitting":        "分片中",

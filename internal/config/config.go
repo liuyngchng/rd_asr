@@ -13,7 +13,7 @@ type SysConfig struct {
 	Auth          bool   `yaml:"auth"`
 	CfgToken      string `yaml:"cfg_tkn"`
 	AllowedOrigin string `yaml:"allowed_origin"`
-	// TokenSecret HMAC 签名密钥，多节点部署时需一致；留空使用内置默认值
+	// TokenSecret HMAC 签名密钥，多节点部署时需一致；必填，至少 16 字符
 	TokenSecret string `yaml:"token_secret"`
 	// FileRetentionDays 磁盘文件保留天数，超过后自动删除（0 表示用默认值 30）
 	FileRetentionDays int `yaml:"file_retention_days"`
@@ -55,6 +55,10 @@ func Load() (*Config, error) {
 		var cfg Config
 		if err := yaml.Unmarshal(data, &cfg); err != nil {
 			loadErr = fmt.Errorf("parse cfg.yml: %w", err)
+			return
+		}
+		if cfg.Sys.TokenSecret == "" {
+			loadErr = fmt.Errorf("sys.token_secret 必须配置，请在 cfg.yml 中设置一个至少 16 字符的随机密钥")
 			return
 		}
 		if cfg.Sys.FileRetentionDays == 0 {
