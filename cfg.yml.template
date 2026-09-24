@@ -1,18 +1,15 @@
 sys:
     #  系统名称(title) 配置
-    name: 语音识别
+    name: 语音转写
     #  是否启用认证， true， 登录后才能使用系统;false 无需登录
     auth: true
     #  自定义数据库配置时的权限认证 token
     cfg_tkn: foobar
     # 配置可访问的域， 防止跨域攻击
     allowed_origin: http://192,168.1.122
-    # 对配置信息进行加密的密钥，长度必须为16/32
-    cypher_key: abaababaabaababa
+    # HMAC 签名密钥，用于 token 签名（留空则使用内置默认值）
+    token_secret: ""
 api:
-
-    # 认证服务 API
-    auth_api: http://127.0.0.1:19011
 
     asr_http_api_uri: http://127.0.0.1:19010
     asr_ws_api_uri: ws://127.0.0.1:19010

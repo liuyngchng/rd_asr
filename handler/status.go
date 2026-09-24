@@ -6,7 +6,7 @@ type TaskStatus string
 const (
 	StatusConverting   TaskStatus = "converting"   // 音频格式转换（ffmpeg）
 	StatusSplitting    TaskStatus = "splitting"    // VAD 语音切分
-	StatusTranscribing TaskStatus = "transcribing" // ASR 转录（逐段发送 FunASR）
+	StatusTranscribing TaskStatus = "transcribing" // ASR 转写（逐段发送 FunASR）
 	StatusCompleted    TaskStatus = "completed"    // 转写完成
 	StatusFailed       TaskStatus = "failed"       // 异常
 )

@@ -13,13 +13,13 @@ type SysConfig struct {
 	Auth          bool   `yaml:"auth"`
 	CfgToken      string `yaml:"cfg_tkn"`
 	AllowedOrigin string `yaml:"allowed_origin"`
-	CypherKey     string `yaml:"cypher_key"`
+	// TokenSecret HMAC 签名密钥，多节点部署时需一致；留空使用内置默认值
+	TokenSecret string `yaml:"token_secret"`
 	// FileRetentionDays 磁盘文件保留天数，超过后自动删除（0 表示用默认值 30）
 	FileRetentionDays int `yaml:"file_retention_days"`
 }
 
 type ApiConfig struct {
-	AuthAPI      string `yaml:"auth_api"`
 	AsrHTTPAPI   string `yaml:"asr_http_api_uri"`
 	AsrWSAPI     string `yaml:"asr_ws_api_uri"`
 	AsrAPIKey    string `yaml:"asr_api_key"`
@@ -55,10 +55,6 @@ func Load() (*Config, error) {
 		var cfg Config
 		if err := yaml.Unmarshal(data, &cfg); err != nil {
 			loadErr = fmt.Errorf("parse cfg.yml: %w", err)
-			return
-		}
-		if cfg.Sys.CypherKey == "" {
-			loadErr = fmt.Errorf("sys.cypher_key is required in cfg.yml")
 			return
 		}
 		if cfg.Sys.FileRetentionDays == 0 {

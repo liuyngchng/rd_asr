@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/asr_login.css">
+    <title>{{.SysName}} - 注册</title>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fas fa-user-plus"></i>
+                <h1>{{.SysName}}</h1>
+                <p>注册新账号</p>
+            </div>
+
+            <div class="login-error" id="regError" style="display:none;">
+                <i class="fas fa-exclamation-circle"></i> <span id="regErrorMsg"></span>
+            </div>
+            <div class="login-success" id="regSuccess" style="display:none;">
+                <i class="fas fa-check-circle"></i> <span id="regSuccessMsg"></span>
+            </div>
+
+            <form id="regForm" class="login-form">
+                <div class="login-field">
+                    <label><i class="fas fa-user"></i> 用户名</label>
+                    <input type="text" id="userName" placeholder="请输入用户名" required autocomplete="off">
+                </div>
+                <div class="login-field">
+                    <label><i class="fas fa-lock"></i> 密码</label>
+                    <input type="password" id="userPwd" placeholder="至少 6 个字符" required>
+                </div>
+                <div class="login-field">
+                    <label><i class="fas fa-lock"></i> 确认密码</label>
+                    <input type="password" id="confirmPwd" placeholder="再次输入密码" required>
+                </div>
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-user-plus"></i> 注 册
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <p style="font-size:0.88rem;color:#888;">
+                    已有账号？<a href="/login" style="color:#4b6cb7;text-decoration:none;">立即登录</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('regForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var userName = document.getElementById('userName').value.trim();
+            var userPwd = document.getElementById('userPwd').value;
+            var confirmPwd = document.getElementById('confirmPwd').value;
+            var errDiv = document.getElementById('regError');
+            var errMsg = document.getElementById('regErrorMsg');
+            var okDiv = document.getElementById('regSuccess');
+            var okMsg = document.getElementById('regSuccessMsg');
+
+            errDiv.style.display = 'none';
+            okDiv.style.display = 'none';
+
+            if (!userName) {
+                errMsg.textContent = '用户名不能为空';
+                errDiv.style.display = 'flex';
+                return;
+            }
+            if (!userPwd) {
+                errMsg.textContent = '密码不能为空';
+                errDiv.style.display = 'flex';
+                return;
+            }
+            if (userPwd.length < 6) {
+                errMsg.textContent = '密码长度至少 6 个字符';
+                errDiv.style.display = 'flex';
+                return;
+            }
+            if (userPwd !== confirmPwd) {
+                errMsg.textContent = '两次输入的密码不一致';
+                errDiv.style.display = 'flex';
+                return;
+            }
+
+            try {
+                var resp = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_name: userName, user_pwd: userPwd })
+                });
+                var data = await resp.json();
+                if (data.status === 'ok') {
+                    okMsg.textContent = '注册成功！正在跳转登录页...';
+                    okDiv.style.display = 'flex';
+                    setTimeout(function() {
+                        window.location.href = '/login';
+                    }, 1200);
+                } else {
+                    errMsg.textContent = data.error || '注册失败';
+                    errDiv.style.display = 'flex';
+                }
+            } catch (err) {
+                errMsg.textContent = '网络错误: ' + err.message;
+                errDiv.style.display = 'flex';
+            }
+        });
+    </script>
+</body>
+</html>

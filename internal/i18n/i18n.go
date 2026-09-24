@@ -1,7 +1,7 @@
 package i18n
 
 var Map = map[string]string{
-	"asr.processing":              "正在处理 {name}...",
+	"asr.processing":              "正在处理中...",
 	"asr.upload_success":          "上传成功",
 	"asr.unsupported_format":      "不支持的文件格式: {name}",
 	"asr.process_failed":          "处理失败: {msg}",
@@ -32,7 +32,7 @@ var Map = map[string]string{
 	"asr.col_actions":             "操作",
 	"asr.status_converting":       "转码中",
 	"asr.status_splitting":        "分片中",
-	"asr.status_transcribing":     "转录中",
+	"asr.status_transcribing":     "转写中",
 	"asr.status_completed":        "已完成",
 	"asr.status_failed":           "异常",
 	"asr.clear_completed":         "清除全部任务",

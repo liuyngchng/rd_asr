@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"rd_asr/internal/token"
+	"rd_asr/internal/auth"
 )
 
 func (s *Server) HandleIndex(w http.ResponseWriter, r *http.Request) {
@@ -14,9 +14,9 @@ func (s *Server) HandleIndex(w http.ResponseWriter, r *http.Request) {
 		s.redirectPortal(w, r)
 		return
 	}
-	payload, err := token.Decode(tok, []byte(s.Config.Sys.CypherKey))
-	if err != nil || payload == nil {
-		slog.Info("index_invalid_token_redirect", "error", err)
+	payload := auth.DecodeToken(tok, auth.GetTokenSecret(s.Config.Sys.TokenSecret))
+	if payload == nil {
+		slog.Info("index_invalid_token_redirect")
 		s.redirectPortal(w, r)
 		return
 	}
@@ -32,9 +32,9 @@ func (s *Server) HandleTaskPage(w http.ResponseWriter, r *http.Request) {
 		s.redirectPortal(w, r)
 		return
 	}
-	payload, err := token.Decode(tok, []byte(s.Config.Sys.CypherKey))
-	if err != nil || payload == nil {
-		slog.Info("task_page_invalid_token_redirect", "error", err)
+	payload := auth.DecodeToken(tok, auth.GetTokenSecret(s.Config.Sys.TokenSecret))
+	if payload == nil {
+		slog.Info("task_page_invalid_token_redirect")
 		s.redirectPortal(w, r)
 		return
 	}

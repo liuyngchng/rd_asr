@@ -3,18 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASR 转写任务</title>
+    <title>{{.SysName}}任务</title>
     <link rel="stylesheet" href="/static/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/asr.my.task.css">
+    <link rel="stylesheet" href="/static/asr.css">
     <script>window.__I18N__ = {{.I18NJS}}; window.__LANG__ = "zh";</script>
     <script type="text/javascript" src="/static/i18n.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1><i class="fas fa-microphone-alt"></i> ASR 转写任务</h1>
+            <h1><i class="fas fa-microphone-alt"></i> {{.SysName}}任务</h1>
             <p>查看和管理您的语音转写任务</p>
-            <div style="margin-top: 12px; text-align: right;">
+            <div style="margin-top: 12px; text-align: right; display:flex; align-items:center; justify-content:flex-end; gap:12px;">
+                <a href="/?t={{.Token}}" class="header-action-btn" style="text-decoration:none;">
+                    <i class="fas fa-arrow-left"></i> 返回
+                </a>
                 <button id="clearCompletedBtn" class="header-action-btn">
                     <i class="fas fa-broom"></i> 清除全部任务
                 </button>
@@ -32,7 +35,7 @@
                         <th>文件名</th>
                         <th>创建时间</th>
                         <th>音频时长</th>
-                        <th>转录耗时</th>
+                        <th>转写耗时</th>
                         <th>状态</th>
                         <th>进度</th>
                         <th>文本下载</th>

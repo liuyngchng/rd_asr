@@ -66,7 +66,7 @@ function renderTasksTable(tasks) {
             const audioDurCell = document.createElement('td');
             row.appendChild(audioDurCell);
 
-            // 转录耗时
+            // 转写耗时
             const transDurCell = document.createElement('td');
             row.appendChild(transDurCell);
 
@@ -101,7 +101,7 @@ function renderTasksTable(tasks) {
         // 音频时长
         cells[3].textContent = formatDuration(task.audio_duration_sec);
 
-        // 转录耗时
+        // 转写耗时
         cells[4].textContent = task.status === 'completed'
             ? formatDuration(task.transcription_duration_sec)
             : '-';

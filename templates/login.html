@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/asr_login.css">
+    <title>{{.SysName}} - 登录</title>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fas fa-microphone-alt"></i>
+                <h1>{{.SysName}}</h1>
+                <p>请登录以继续</p>
+            </div>
+
+            <div class="login-error" id="loginError" style="display:none;">
+                <i class="fas fa-exclamation-circle"></i> <span id="loginErrorMsg"></span>
+            </div>
+
+            <form id="loginForm" class="login-form">
+                <div class="login-field">
+                    <label><i class="fas fa-user"></i> 用户名</label>
+                    <input type="text" id="userName" placeholder="请输入用户名" required autocomplete="off">
+                </div>
+                <div class="login-field">
+                    <label><i class="fas fa-lock"></i> 密码</label>
+                    <input type="password" id="userPwd" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> 登 录
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <p style="font-size:0.88rem;color:#888;">
+                    还没有账号？<a href="/register" style="color:#4b6cb7;text-decoration:none;">注册新账号</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 强制修改密码弹窗（首次登录 admin 触发） -->
+    <div id="forcePwdModal" class="pwd-modal-overlay" style="display:none;">
+        <div class="pwd-modal">
+            <h3><i class="fas fa-key"></i> 首次登录，请修改密码</h3>
+            <p class="force-pwd-tip">管理员初始密码即将过期，请设置新密码后继续使用。</p>
+            <div class="pwd-modal-error" id="forcePwdError" style="display:none;"></div>
+            <form id="forcePwdForm">
+                <div class="pwd-field">
+                    <label>新密码</label>
+                    <input type="password" id="forceNewPwd" required placeholder="至少 6 个字符">
+                </div>
+                <div class="pwd-field">
+                    <label>确认新密码</label>
+                    <input type="password" id="forceConfirmPwd" required placeholder="再次输入新密码">
+                </div>
+                <div class="pwd-actions">
+                    <button type="submit" class="cfg-btn cfg-btn-save">确认修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        var loginToken = '';
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var userName = document.getElementById('userName').value.trim();
+            var userPwd = document.getElementById('userPwd').value.trim();
+            var errorDiv = document.getElementById('loginError');
+            var errorMsg = document.getElementById('loginErrorMsg');
+
+            if (!userName || !userPwd) {
+                errorMsg.textContent = '用户名和密码不能为空';
+                errorDiv.style.display = 'flex';
+                return;
+            }
+
+            try {
+                var resp = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_name: userName, user_pwd: userPwd })
+                });
+                var data = await resp.json();
+                if (data.status === 'ok') {
+                    loginToken = data.token || '';
+                    if (data.must_change_pwd) {
+                        document.getElementById('forceNewPwd').value = '';
+                        document.getElementById('forceConfirmPwd').value = '';
+                        document.getElementById('forcePwdError').style.display = 'none';
+                        document.getElementById('forcePwdModal').style.display = 'flex';
+                    } else {
+                        window.location.href = '/?t=' + encodeURIComponent(loginToken);
+                    }
+                } else {
+                    errorMsg.textContent = data.error || '登录失败';
+                    errorDiv.style.display = 'flex';
+                }
+            } catch (err) {
+                errorMsg.textContent = '网络错误: ' + err.message;
+                errorDiv.style.display = 'flex';
+            }
+        });
+
+        document.getElementById('forcePwdForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var newPwd = document.getElementById('forceNewPwd').value;
+            var confirmPwd = document.getElementById('forceConfirmPwd').value;
+            var errDiv = document.getElementById('forcePwdError');
+
+            if (!newPwd || !confirmPwd) {
+                errDiv.textContent = '密码不能为空';
+                errDiv.style.display = 'block';
+                return;
+            }
+            if (newPwd !== confirmPwd) {
+                errDiv.textContent = '两次输入的密码不一致';
+                errDiv.style.display = 'block';
+                return;
+            }
+            if (newPwd.length < 6) {
+                errDiv.textContent = '密码长度至少 6 个字符';
+                errDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                var resp = await fetch('/api/change_password?t=' + encodeURIComponent(loginToken), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_pwd: document.getElementById('userPwd').value.trim(), new_pwd: newPwd })
+                });
+                var data = await resp.json();
+                if (data.status === 'ok') {
+                    window.location.href = '/?t=' + encodeURIComponent(loginToken);
+                } else {
+                    errDiv.textContent = data.error || '修改失败';
+                    errDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errDiv.textContent = '网络错误: ' + err.message;
+                errDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

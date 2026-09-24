@@ -11,10 +11,10 @@ import (
 	"strings"
 	"sync"
 
+	"rd_asr/internal/auth"
 	"rd_asr/internal/config"
 	"rd_asr/internal/i18n"
 	"rd_asr/internal/store"
-	"rd_asr/internal/token"
 )
 
 const AppTypeASR = "asr"
@@ -24,6 +24,7 @@ type pageCtx struct {
 	Dir         string
 	SysName     string
 	UID         string
+	UserName    string
 	Token       string
 	AppSource   string
 	WarningInfo string
@@ -64,7 +65,7 @@ func (s *Server) render(w http.ResponseWriter, tmplName string, ctx pageCtx) {
 	}
 }
 
-func (s *Server) buildContext(payload *token.Payload, tokenStr string) pageCtx {
+func (s *Server) buildContext(payload *auth.Payload, tokenStr string) pageCtx {
 	uid := fmt.Sprintf("%d", payload.UID)
 	hackAdmin := "0"
 	if payload.Role == 2 {
@@ -76,6 +77,7 @@ func (s *Server) buildContext(payload *token.Payload, tokenStr string) pageCtx {
 		Dir:       "ltr",
 		SysName:   s.sysName(),
 		UID:       uid,
+		UserName:  payload.UserName,
 		Token:     tokenStr,
 		AppSource: AppTypeASR,
 		HackAdmin: hackAdmin,
@@ -87,13 +89,13 @@ func (s *Server) sysName() string {
 	if s.Config.Sys.Name != "" {
 		return s.Config.Sys.Name
 	}
-	return "语音识别"
+	return "语音转写"
 }
 
 func (s *Server) redirectPortal(w http.ResponseWriter, r *http.Request) {
-	portalURL := fmt.Sprintf("http://127.0.0.1:19000/login?app_source=%s", AppTypeASR)
+	portalURL := "/login"
 	if warningInfo := r.URL.Query().Get("warning_info"); warningInfo != "" {
-		portalURL += "&warning_info=" + warningInfo
+		portalURL += "?warning_info=" + warningInfo
 	}
 	http.Redirect(w, r, portalURL, http.StatusFound)
 }

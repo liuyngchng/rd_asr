@@ -8,38 +8,44 @@
     <link rel="stylesheet" href="/static/asr.css">
 </head>
 <body>
-    <div class="wrapper">
-        <div class="card">
-            <div class="card-top">
-                <span class="card-title"><i class="fas fa-microphone-alt"></i> {{.SysName}}</span>
-                <a href="/asr/task?uid={{.UID}}&app_source={{.AppSource}}&t={{.Token}}" class="card-link" target="_blank">
+    <div class="container">
+        <div class="card-top">
+            <h1><i class="fas fa-microphone-alt"></i> {{.SysName}}</h1>
+            <p>上传音频文件，自动转换为文字</p>
+            <div class="card-top-actions">
+                <a href="/asr/task?uid={{.UID}}&app_source={{.AppSource}}&t={{.Token}}" class="card-link">
                     <i class="fas fa-tasks"></i> 我的任务
                 </a>
-            </div>
-
-            <div class="card-body">
-                <i class="fas fa-cloud-upload-alt icon-upload"></i>
-                <h2>上传音频文件，自动转换为文字</h2>
-                <p class="desc">支持 MP3、M4A、AMR、WAV、FLAC、OGG、AAC 等格式</p>
-
-                <div class="upload-result" id="uploadResult" style="display: none;"></div>
-
-                <div class="file-list-container" id="fileListContainer" style="display: none;">
-                    <div class="file-list-header">
-                        <span>已选择文件:</span>
-                        <button class="clear-files-btn" onclick="clearFileList()"><i class="fas fa-times"></i></button>
-                    </div>
-                    <div class="file-list" id="fileList"></div>
-                </div>
-
-                <label class="btn-upload">
-                    <input type="file" id="fileInput" multiple accept=".mp3,.m4a,.amr,.wav,.flac,.ogg,.aac">
-                    <i class="fas fa-plus"></i> 选择文件
-                </label>
+                <span style="font-size:0.85rem;color:rgba(255,255,255,0.85);">
+                    <i class="fas fa-user"></i> {{.UserName}}
+                </span>
+                <a href="/logout?t={{.Token}}" class="card-link">
+                    <i class="fas fa-sign-out-alt"></i> 退出
+                </a>
             </div>
         </div>
 
-        <p class="footnote">Powered by FunASR &amp; FFmpeg</p>
+        <div class="card-body">
+            <i class="fas fa-cloud-upload-alt icon-upload"></i>
+            <p class="desc">支持 MP3、M4A、AMR、WAV、FLAC、OGG、AAC 等格式</p>
+
+            <div class="upload-result" id="uploadResult" style="display: none;"></div>
+
+            <div class="file-list-container" id="fileListContainer" style="display: none;">
+                <div class="file-list-header">
+                    <span>已选择文件:</span>
+                    <button class="clear-files-btn" onclick="clearFileList()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="file-list" id="fileList"></div>
+            </div>
+
+            <label class="btn-upload">
+                <input type="file" id="fileInput" multiple accept=".mp3,.m4a,.amr,.wav,.flac,.ogg,.aac">
+                <i class="fas fa-plus"></i> 选择文件
+            </label>
+
+            <p class="footnote">Powered by FunASR &amp; FFmpeg</p>
+        </div>
     </div>
 
     <input type="hidden" id="uid" name="uid" value="{{.UID}}">

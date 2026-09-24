@@ -177,7 +177,7 @@ func (s *Server) processAudio(parent context.Context, taskID, inputPath, asrHost
 	s.Store.UpdateTask(taskID, map[string]interface{}{"status": StatusTranscribing, "progress": 0})
 	transcribeStart := time.Now()
 
-	// 从结果文件恢复已转录文本
+	// 从结果文件恢复已转写文本
 	var allText strings.Builder
 	resultFile := filepath.Join("results", taskID+".txt")
 	if data, err := os.ReadFile(resultFile); err == nil {

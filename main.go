@@ -5,13 +5,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"rd_asr/handler"
+	"rd_asr/internal/auth"
 	"rd_asr/internal/config"
 	"rd_asr/internal/funasr"
 	"rd_asr/internal/logger"
 	"rd_asr/internal/store"
-	"rd_asr/internal/token"
 )
 
 func main() {
@@ -27,6 +28,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "FATAL: logger init error: %v\n", err)
 		os.Exit(1)
 	}
+
+	// 启动时探测 FunASR 服务是否可用（最先检查，不可用则直接退出）
+	if err := funasr.Ping(cfg.Funasr.Host, cfg.Funasr.Port); err != nil {
+		slog.Warn("funasr_unreachable", "host", cfg.Funasr.Host, "port", cfg.Funasr.Port, "error", err)
+		fmt.Fprintf(os.Stderr, "\033[31mFATAL: FunASR 服务不可用，程序退出。请检查 %s:%d\033[0m\n", cfg.Funasr.Host, cfg.Funasr.Port)
+		os.Exit(1)
+	}
+	slog.Info("funasr_connected", "host", cfg.Funasr.Host, "port", cfg.Funasr.Port)
 
 	// 确保数据目录存在
 	for _, dir := range []string{"uploads", "converted", "results"} {
@@ -51,15 +60,6 @@ func main() {
 	srv.CleanExpiredFiles()
 	defer srv.StartFileCleaner()()
 
-	// 启动时探测 FunASR 服务是否可用
-	if err := funasr.Ping(cfg.Funasr.Host, cfg.Funasr.Port); err != nil {
-		slog.Warn("funasr_unreachable", "host", cfg.Funasr.Host, "port", cfg.Funasr.Port, "error", err)
-		fmt.Fprintf(os.Stderr, "\033[31mFATAL: FunASR 服务不可用，程序退出。请检查 %s:%d\033[0m\n", cfg.Funasr.Host, cfg.Funasr.Port)
-		os.Exit(1)
-	} else {
-		slog.Info("funasr_connected", "host", cfg.Funasr.Host, "port", cfg.Funasr.Port)
-	}
-
 	// HTTP 路由
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +70,12 @@ func main() {
 		http.NotFound(w, r)
 	})
 	mux.HandleFunc("/asr/task", srv.HandleTaskPage)
+	mux.HandleFunc("/login", srv.HandleLoginPage)
+	mux.HandleFunc("/logout", srv.HandleLogout)
+	mux.HandleFunc("/register", srv.HandleRegisterPage)
+	mux.HandleFunc("/api/login", srv.HandleLogin)
+	mux.HandleFunc("/api/register", srv.HandleRegister)
+	mux.HandleFunc("/api/change_password", srv.HandleChangePassword)
 	mux.HandleFunc("/static/", handler.HandleStatic)
 	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -85,11 +91,12 @@ func main() {
 	mux.HandleFunc("/api/retry", srv.HandleRetryTask)
 
 	// Debug token
-	debugToken, _ := token.Create(1, 0, 86400, cfg.Sys.CypherKey)
+	secret := auth.GetTokenSecret(cfg.Sys.TokenSecret)
+	debugToken := auth.CreateToken(1, "admin", 2, 86400*time.Second, secret)
 	fmt.Printf("\n%s\n", repeat("=", 70))
 	fmt.Printf("  Debug访问链接（直接点击进入）:\n")
 	fmt.Printf("  >>> http://127.0.0.1:19010?t=%s\n", debugToken)
-	fmt.Printf("  uid=1, role=0, token有效期=24h\n")
+	fmt.Printf("  uid=1, role=2 (admin), token有效期=24h\n")
 	fmt.Printf("%s\n\n", repeat("=", 70))
 
 	port := 19010
